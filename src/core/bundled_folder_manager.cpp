@@ -2223,7 +2223,6 @@ VxCoreError BundledFolderManager::UnindexNode(const std::string &node_path) {
 VxCoreError BundledFolderManager::ListExternalNodes(const std::string &folder_path,
                                                    FolderContents &out_contents) {
   const auto clean_path = GetCleanRelativePath(folder_path);
-  VXCORE_LOG_INFO("ListExternalNodes: path=%s", clean_path.c_str());
 
   // Clear output
   out_contents.files.clear();
@@ -2308,8 +2307,6 @@ VxCoreError BundledFolderManager::ListExternalNodes(const std::string &folder_pa
     return VXCORE_ERR_IO;
   }
 
-  VXCORE_LOG_INFO("ListExternalNodes: Found %zu external files, %zu external folders",
-                  out_contents.files.size(), out_contents.folders.size());
   return VXCORE_OK;
 }
 }  // namespace vxcore
