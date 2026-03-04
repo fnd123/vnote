@@ -100,6 +100,33 @@ VxCoreError ConfigManager::EnsureDataFolders() {
   }
 }
 
+VxCoreError ConfigManager::SaveConfig() {
+  if (app_data_path_.empty()) {
+    VXCORE_LOG_ERROR("Cannot save config: app_data_path not initialized");
+    return VXCORE_ERR_NOT_INITIALIZED;
+  }
+
+  try {
+    auto config_path = app_data_path_ / kCoreConfigFileName;
+    VXCORE_LOG_DEBUG("Saving config: %s", config_path.string().c_str());
+    std::ofstream file(config_path);
+    if (!file.is_open()) {
+      VXCORE_LOG_ERROR("Failed to open config file for writing");
+      return VXCORE_ERR_IO;
+    }
+    nlohmann::json json = config_.ToJson();
+    file << json.dump(2);
+    VXCORE_LOG_DEBUG("Config saved successfully");
+    return VXCORE_OK;
+  } catch (const nlohmann::json::exception &e) {
+    VXCORE_LOG_ERROR("JSON serialization error while saving config: %s", e.what());
+    return VXCORE_ERR_JSON_SERIALIZE;
+  } catch (...) {
+    VXCORE_LOG_ERROR("Unknown error while saving config");
+    return VXCORE_ERR_IO;
+  }
+}
+
 VxCoreError ConfigManager::SaveSessionConfig() {
   if (local_data_path_.empty()) {
     VXCORE_LOG_ERROR("Cannot save session config: local_data_path not initialized");

@@ -2,13 +2,11 @@
 #include <string.h>
 
 #include <nlohmann/json.hpp>
-#include <set>
 
 #include "api/api_utils.h"
 #include "core/config_manager.h"
 #include "core/context.h"
-#include "core/vxcore_config.h"
-#include "utils/string_utils.h"
+#include "core/filetype_config.h"
 #include "vxcore/vxcore.h"
 
 VXCORE_API VxCoreError vxcore_filetype_list(VxCoreContextHandle context, char **out_json) {
@@ -135,49 +133,24 @@ VXCORE_API VxCoreError vxcore_filetype_set(VxCoreContextHandle context, const ch
       return VXCORE_ERR_INVALID_PARAM;
     }
 
-    // 2. Parse and validate entries
+    // 2. Parse entries
     std::vector<vxcore::FileTypeEntry> new_types;
-    std::set<std::string> seen_names;
-
-    for (size_t i = 0; i < json_array.size(); ++i) {
-      const auto &entry_json = json_array[i];
-
-      // Parse entry
-      vxcore::FileTypeEntry entry = vxcore::FileTypeEntry::FromJson(entry_json);
-
-      // Validate: name must not be empty
-      if (entry.name.empty()) {
-        ctx->last_error = "Entry at index " + std::to_string(i) + " has empty name";
-        return VXCORE_ERR_INVALID_PARAM;
-      }
-
-      // Validate: name must be unique (case-insensitive)
-      std::string lower_name = vxcore::ToLowerString(entry.name);
-      if (seen_names.count(lower_name) > 0) {
-        ctx->last_error = "Duplicate name: " + entry.name;
-        return VXCORE_ERR_INVALID_PARAM;
-      }
-      seen_names.insert(lower_name);
-
-      new_types.push_back(std::move(entry));
+    for (const auto &entry_json : json_array) {
+      new_types.push_back(vxcore::FileTypeEntry::FromJson(entry_json));
     }
 
-    // 3. Build new config with updated file_types
-    vxcore::VxCoreConfig new_config = ctx->config_manager->GetConfig();
-    new_config.file_types.types = std::move(new_types);
+    // 3. Validate and apply via SetTypes
+    vxcore::SetTypesResult result =
+        ctx->config_manager->GetConfig().file_types.SetTypes(std::move(new_types));
+    if (!result.success) {
+      ctx->last_error = result.error;
+      return VXCORE_ERR_INVALID_PARAM;
+    }
 
-    // 4. Serialize and persist
-    std::string config_json = new_config.ToJson().dump(2);
-    VxCoreError err = ctx->config_manager->SaveConfigByName(VXCORE_DATA_APP, "vxcore", config_json);
+    // 4. Persist to disk
+    VxCoreError err = ctx->config_manager->SaveConfig();
     if (err != VXCORE_OK) {
       ctx->last_error = "Failed to save config";
-      return err;
-    }
-
-    // 5. Reload to update in-memory state
-    err = ctx->config_manager->LoadConfigs();
-    if (err != VXCORE_OK) {
-      ctx->last_error = "Failed to reload config after save";
       return err;
     }
 

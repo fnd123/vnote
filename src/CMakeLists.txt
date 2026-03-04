@@ -18,6 +18,7 @@ set(VXCORE_SOURCES
     api/error_handler.cpp
     core/config_manager.cpp
     core/vxcore_config.cpp
+    core/filetype_config.cpp
     core/vxcore_session_config.cpp
     core/notebook.cpp
     core/bundled_notebook.cpp

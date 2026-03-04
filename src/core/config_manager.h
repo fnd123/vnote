@@ -18,6 +18,7 @@ class ConfigManager {
   VxCoreError LoadConfigs();
 
   const VxCoreConfig &GetConfig() const { return config_; }
+  VxCoreConfig &GetConfig() { return config_; }
   const VxCoreSessionConfig &GetSessionConfig() const { return session_config_; }
   VxCoreSessionConfig &GetSessionConfig() { return session_config_; }
 
@@ -27,6 +28,7 @@ class ConfigManager {
   std::string GetConfigPath() const { return (app_data_path_ / "vxcore.json").string(); }
   std::string GetSessionConfigPath() const { return (local_data_path_ / "session.json").string(); }
 
+  VxCoreError SaveConfig();
   VxCoreError SaveSessionConfig();
 
   VxCoreError LoadConfigByName(VxCoreDataLocation location, const std::string &base_name,
