@@ -46,10 +46,6 @@ std::string FileTypeEntry::GetDisplayName(const std::string &locale) const {
 FileTypeEntry FileTypeEntry::FromJson(const nlohmann::json &json) {
   FileTypeEntry entry;
 
-  if (json.contains("typeId") && json["typeId"].is_number_integer()) {
-    entry.type_id = json["typeId"].get<int>();
-  }
-
   if (json.contains("name") && json["name"].is_string()) {
     entry.name = json["name"].get<std::string>();
   }
@@ -80,7 +76,6 @@ FileTypeEntry FileTypeEntry::FromJson(const nlohmann::json &json) {
 
 nlohmann::json FileTypeEntry::ToJson() const {
   nlohmann::json json = nlohmann::json::object();
-  json["typeId"] = type_id;
   json["name"] = name;
   json["suffixes"] = suffixes;
   json["isNewable"] = is_newable;
@@ -100,11 +95,11 @@ nlohmann::json FileTypeEntry::ToJson() const {
 // FileTypesConfig implementation
 
 FileTypesConfig::FileTypesConfig() {
-  types.push_back(FileTypeEntry(0, "Markdown", {"md", "mkd", "rmd", "markdown"}, true, "Markdown"));
-  types.push_back(FileTypeEntry(1, "Text", {"txt", "text", "log"}, true, "Text"));
-  types.push_back(FileTypeEntry(2, "PDF", {"pdf"}, false, "Portable Document Format"));
-  types.push_back(FileTypeEntry(3, "MindMap", {"emind"}, true, "Mind Map"));
-  types.push_back(FileTypeEntry(4, "Others", {}, true, "Others"));
+  types.push_back(FileTypeEntry("Markdown", {"md", "mkd", "rmd", "markdown"}, true, "Markdown"));
+  types.push_back(FileTypeEntry("Text", {"txt", "text", "log"}, true, "Text"));
+  types.push_back(FileTypeEntry("PDF", {"pdf"}, false, "Portable Document Format"));
+  types.push_back(FileTypeEntry("MindMap", {"emind"}, true, "Mind Map"));
+  types.push_back(FileTypeEntry("Others", {}, true, "Others"));
 }
 
 const FileTypeEntry *FileTypesConfig::GetBySuffix(const std::string &suffix) const {
@@ -118,22 +113,14 @@ const FileTypeEntry *FileTypesConfig::GetBySuffix(const std::string &suffix) con
     }
   }
 
-  // Return Others type (typeId=4) if not found
-  return GetById(4);
+  // Return Others type if not found
+  return GetByName("Others");
 }
 
 const FileTypeEntry *FileTypesConfig::GetByName(const std::string &name) const {
+  std::string lower_name = ToLowerString(name);
   for (const auto &type : types) {
-    if (type.name == name) {
-      return &type;
-    }
-  }
-  return nullptr;
-}
-
-const FileTypeEntry *FileTypesConfig::GetById(int type_id) const {
-  for (const auto &type : types) {
-    if (type.type_id == type_id) {
+    if (ToLowerString(type.name) == lower_name) {
       return &type;
     }
   }

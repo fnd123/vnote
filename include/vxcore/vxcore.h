@@ -251,6 +251,18 @@ VXCORE_API VxCoreError vxcore_filetype_get_by_suffix(VxCoreContextHandle context
 VXCORE_API VxCoreError vxcore_filetype_get_by_name(VxCoreContextHandle context, const char *name,
                                                    char **out_json);
 
+// Set the entire file types configuration.
+// Replaces all file types with the provided JSON array.
+// filetype_json: JSON array of file type objects, each with:
+//   - "name" (string, required, must be unique)
+//   - "suffixes" (array of strings)
+//   - "isNewable" (boolean)
+//   - "displayName" (string)
+//   - "metadata" (object, optional)
+// Returns VXCORE_ERR_JSON_PARSE if JSON is invalid.
+// Returns VXCORE_ERR_INVALID_PARAM if validation fails (empty name, duplicate names).
+VXCORE_API VxCoreError vxcore_filetype_set(VxCoreContextHandle context, const char *filetype_json);
+
 // ============ Tag Operations ============
 
 VXCORE_API VxCoreError vxcore_tag_create(VxCoreContextHandle context, const char *notebook_id,
