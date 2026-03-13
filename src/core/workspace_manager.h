@@ -10,11 +10,12 @@
 
 namespace vxcore {
 
+class BufferManager;
 class ConfigManager;
 
 class WorkspaceManager {
  public:
-  explicit WorkspaceManager(ConfigManager *config_manager);
+  explicit WorkspaceManager(ConfigManager *config_manager, BufferManager *buffer_manager);
   ~WorkspaceManager();
 
   // Create a new workspace with the given name, returns new workspace ID
@@ -47,13 +48,23 @@ class WorkspaceManager {
   // Set the current buffer in a workspace, returns true if successful
   bool SetCurrentBufferInWorkspace(const std::string &ws_id, const std::string &buf_id);
 
- private:
-  void LoadWorkspaces();
+  // Mark that shutdown has been called (prevents destructor from saving)
+  void SetShutdownCalled(bool called) { shutdown_called_ = called; }
+
+  // Update workspace records in session config (in-memory only, no disk write)
+  void UpdateSessionWorkspaces();
+
+  // Save workspaces to session config and write to disk
   void SaveWorkspaces();
 
+ private:
+  void LoadWorkspaces();
+
   ConfigManager *config_manager_ = nullptr;
+  BufferManager *buffer_manager_ = nullptr;
   std::map<std::string, std::unique_ptr<WorkspaceConfig>> workspaces_;
   std::string current_workspace_id_;
+  bool shutdown_called_ = false;
 };
 
 }  // namespace vxcore

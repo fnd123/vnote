@@ -2,38 +2,85 @@
 
 #include <algorithm>
 
+#include "buffer_manager.h"
 #include "config_manager.h"
 #include "utils/logger.h"
 #include "utils/utils.h"
 
 namespace vxcore {
 
-WorkspaceManager::WorkspaceManager(ConfigManager *config_manager)
-    : config_manager_(config_manager) {
+WorkspaceManager::WorkspaceManager(ConfigManager *config_manager, BufferManager *buffer_manager)
+    : config_manager_(config_manager), buffer_manager_(buffer_manager) {
   LoadWorkspaces();
 }
 
-WorkspaceManager::~WorkspaceManager() { SaveWorkspaces(); }
+WorkspaceManager::~WorkspaceManager() {
+  if (!shutdown_called_) {
+    SaveWorkspaces();
+  }
+}
 
 void WorkspaceManager::LoadWorkspaces() {
   auto &session_config = config_manager_->GetSessionConfig();
   workspaces_.clear();
 
+  // Check if session recovery is disabled
+  if (!config_manager_->GetConfig().recover_last_session) {
+    session_config.workspaces.clear();
+    session_config.current_workspace_id.clear();
+    VXCORE_LOG_INFO("Session recovery disabled, skipping workspace restore");
+    return;
+  }
+
   for (const auto &record : session_config.workspaces) {
     auto workspace = std::make_unique<WorkspaceConfig>();
     workspace->id = record.id;
     workspace->name = record.name;
-    workspace->visible = true;  // Default visible
+    workspace->metadata = record.metadata;
+
+    // Filter buffer_ids to only include IDs that exist in BufferManager
+    if (buffer_manager_) {
+      for (const auto &buf_id : record.buffer_ids) {
+        if (buffer_manager_->GetBuffer(buf_id) != nullptr) {
+          workspace->buffer_ids.push_back(buf_id);
+        } else {
+          VXCORE_LOG_WARN("Workspace '%s': skipping missing buffer: %s", record.name.c_str(),
+                          buf_id.c_str());
+        }
+      }
+    }
+
+    // Restore current_buffer_id if it exists in the filtered buffer list
+    if (!record.current_buffer_id.empty()) {
+      auto it = std::find(workspace->buffer_ids.begin(), workspace->buffer_ids.end(),
+                          record.current_buffer_id);
+      if (it != workspace->buffer_ids.end()) {
+        workspace->current_buffer_id = record.current_buffer_id;
+      } else if (!workspace->buffer_ids.empty()) {
+        workspace->current_buffer_id = workspace->buffer_ids.front();
+      }
+    }
+
+    size_t loaded_count = workspace->buffer_ids.size();
+    size_t original_count = record.buffer_ids.size();
     workspaces_[workspace->id] = std::move(workspace);
-    VXCORE_LOG_DEBUG("Loaded workspace: id=%s, name=%s", record.id.c_str(), record.name.c_str());
+    VXCORE_LOG_DEBUG("Loaded workspace: id=%s, name=%s, buffers=%zu (from %zu)", record.id.c_str(),
+                     record.name.c_str(), loaded_count, original_count);
   }
 
-  current_workspace_id_ = session_config.current_workspace_id;
+  // Restore current_workspace_id if it still exists
+  if (!session_config.current_workspace_id.empty() &&
+      workspaces_.find(session_config.current_workspace_id) != workspaces_.end()) {
+    current_workspace_id_ = session_config.current_workspace_id;
+  } else if (!workspaces_.empty()) {
+    current_workspace_id_ = workspaces_.begin()->first;
+  }
+
   VXCORE_LOG_INFO("Loaded %zu workspaces, current=%s", workspaces_.size(),
                   current_workspace_id_.c_str());
 }
 
-void WorkspaceManager::SaveWorkspaces() {
+void WorkspaceManager::UpdateSessionWorkspaces() {
   auto &session_config = config_manager_->GetSessionConfig();
   session_config.workspaces.clear();
 
@@ -41,11 +88,18 @@ void WorkspaceManager::SaveWorkspaces() {
     WorkspaceRecord record;
     record.id = pair.second->id;
     record.name = pair.second->name;
+    record.buffer_ids = pair.second->buffer_ids;
+    record.current_buffer_id = pair.second->current_buffer_id;
+    record.metadata = pair.second->metadata;
     session_config.workspaces.push_back(record);
   }
 
   session_config.current_workspace_id = current_workspace_id_;
+  VXCORE_LOG_DEBUG("Updated %zu workspace records in session config", workspaces_.size());
+}
 
+void WorkspaceManager::SaveWorkspaces() {
+  UpdateSessionWorkspaces();
   config_manager_->SaveSessionConfig();
   VXCORE_LOG_DEBUG("Saved %zu workspaces to session", workspaces_.size());
 }
@@ -54,7 +108,6 @@ std::string WorkspaceManager::CreateWorkspace(const std::string &name) {
   auto workspace = std::make_unique<WorkspaceConfig>();
   workspace->id = GenerateUUID();
   workspace->name = name;
-  workspace->visible = true;
   workspace->metadata = nlohmann::json::object();
 
   std::string id = workspace->id;
@@ -83,7 +136,6 @@ bool WorkspaceManager::DeleteWorkspace(const std::string &id) {
     }
   }
 
-  SaveWorkspaces();
   VXCORE_LOG_INFO("Deleted workspace: id=%s", id.c_str());
   return true;
 }
@@ -115,7 +167,6 @@ bool WorkspaceManager::RenameWorkspace(const std::string &id, const std::string 
   }
 
   it->second->name = name;
-  SaveWorkspaces();
   VXCORE_LOG_INFO("Renamed workspace: id=%s, new_name=%s", id.c_str(), name.c_str());
   return true;
 }
@@ -129,7 +180,6 @@ bool WorkspaceManager::SetCurrentWorkspaceId(const std::string &id) {
   }
 
   current_workspace_id_ = id;
-  SaveWorkspaces();
   VXCORE_LOG_INFO("Set current workspace: id=%s", id.c_str());
   return true;
 }
@@ -150,7 +200,6 @@ bool WorkspaceManager::AddBufferToWorkspace(const std::string &ws_id, const std:
   }
 
   buffer_ids.push_back(buf_id);
-  SaveWorkspaces();
   VXCORE_LOG_INFO("Added buffer to workspace: ws_id=%s, buf_id=%s", ws_id.c_str(), buf_id.c_str());
   return true;
 }
@@ -177,7 +226,6 @@ bool WorkspaceManager::RemoveBufferFromWorkspace(const std::string &ws_id,
     it->second->current_buffer_id.clear();
   }
 
-  SaveWorkspaces();
   VXCORE_LOG_INFO("Removed buffer from workspace: ws_id=%s, buf_id=%s", ws_id.c_str(),
                   buf_id.c_str());
   return true;
@@ -195,7 +243,6 @@ bool WorkspaceManager::SetCurrentBufferInWorkspace(const std::string &ws_id,
   // We also don't check if buf_id is in buffer_ids - it might be added later
 
   it->second->current_buffer_id = buf_id;
-  SaveWorkspaces();
   VXCORE_LOG_INFO("Set current buffer in workspace: ws_id=%s, buf_id=%s", ws_id.c_str(),
                   buf_id.c_str());
   return true;

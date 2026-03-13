@@ -22,8 +22,9 @@ struct VxCoreConfig {
   std::string version;
   SearchConfig search;
   FileTypesConfig file_types;
+  bool recover_last_session;
 
-  VxCoreConfig() : version("0.1.0"), search(), file_types() {}
+  VxCoreConfig() : version("0.1.0"), search(), file_types(), recover_last_session(true) {}
 
   static VxCoreConfig FromJson(const nlohmann::json &json);
   nlohmann::json ToJson() const;

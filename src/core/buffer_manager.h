@@ -63,14 +63,23 @@ class BufferManager {
   // Get provider for a buffer (returns nullptr if unsupported or not found)
   IBufferProvider *GetProvider(const std::string &buffer_id);
 
+  // Mark that shutdown has been called (prevents destructor from saving)
+  void SetShutdownCalled(bool called) { shutdown_called_ = called; }
+
+  // Update buffer records in session config (in-memory only, no disk write)
+  void UpdateSessionBuffers();
+
+  // Save buffers to session config and write to disk
+  void SaveBuffers();
+
  private:
   void LoadBuffers();
-  void SaveBuffers();
 
   ConfigManager *config_manager_ = nullptr;
   NotebookManager *notebook_manager_ = nullptr;
   std::map<std::string, std::unique_ptr<Buffer>> buffers_;
   int64_t auto_save_interval_ms_ = 30000;  // Default 30 seconds
+  bool shutdown_called_ = false;
 };
 
 }  // namespace vxcore

@@ -32,6 +32,9 @@ VxCoreConfig VxCoreConfig::FromJson(const nlohmann::json &json) {
   if (json.contains("fileTypes") && json["fileTypes"].is_object()) {
     config.file_types = FileTypesConfig::FromJson(json["fileTypes"]);
   }
+  if (json.contains("recoverLastSession") && json["recoverLastSession"].is_boolean()) {
+    config.recover_last_session = json["recoverLastSession"].get<bool>();
+  }
   return config;
 }
 
@@ -40,6 +43,7 @@ nlohmann::json VxCoreConfig::ToJson() const {
   json["version"] = version;
   json["search"] = search.ToJson();
   json["fileTypes"] = file_types.ToJson();
+  json["recoverLastSession"] = recover_last_session;
   return json;
 }
 

@@ -28,6 +28,12 @@ VXCORE_API VxCoreError vxcore_context_create(const char *config_json,
 
 VXCORE_API void vxcore_context_destroy(VxCoreContextHandle context);
 
+// Persist all in-memory state (buffers, workspaces) to session config on disk.
+// Call this before vxcore_context_destroy() for a clean shutdown.
+// After calling this, the destructors will skip their own save to avoid
+// overwriting the snapshot with partial state.
+VXCORE_API VxCoreError vxcore_shutdown(VxCoreContextHandle context);
+
 VXCORE_API VxCoreError vxcore_context_get_last_error(VxCoreContextHandle context,
                                                      const char **out_message);
 

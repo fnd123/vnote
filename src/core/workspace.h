@@ -10,7 +10,6 @@ namespace vxcore {
 struct WorkspaceConfig {
   std::string id;
   std::string name;
-  bool visible;
   std::vector<std::string> buffer_ids;
   std::string current_buffer_id;
   nlohmann::json metadata;
@@ -24,6 +23,9 @@ struct WorkspaceConfig {
 struct WorkspaceRecord {
   std::string id;
   std::string name;
+  std::vector<std::string> buffer_ids;
+  std::string current_buffer_id;
+  nlohmann::json metadata;
 
   WorkspaceRecord();
 

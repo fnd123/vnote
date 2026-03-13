@@ -1,6 +1,7 @@
 #include "buffer_manager.h"
 
 #include <algorithm>
+#include <filesystem>
 
 #include "buffer_provider.h"
 #include "config_manager.h"
@@ -17,31 +18,54 @@ BufferManager::BufferManager(ConfigManager *config_manager, NotebookManager *not
   LoadBuffers();
 }
 
-BufferManager::~BufferManager() { SaveBuffers(); }
+BufferManager::~BufferManager() {
+  if (!shutdown_called_) {
+    SaveBuffers();
+  }
+}
 
 void BufferManager::LoadBuffers() {
   auto &session_config = config_manager_->GetSessionConfig();
   buffers_.clear();
+
+  // Check if session recovery is disabled
+  if (!config_manager_->GetConfig().recover_last_session) {
+    session_config.buffers.clear();
+    VXCORE_LOG_INFO("Session recovery disabled, skipping buffer restore");
+    return;
+  }
 
   for (const auto &record : session_config.buffers) {
     // Resolve notebook pointer if notebook_id is not empty
     Notebook *notebook = nullptr;
     if (!record.notebook_id.empty()) {
       notebook = notebook_manager_->GetNotebook(record.notebook_id);
-      // Note: notebook may be null if it was closed/deleted since last session
+      if (!notebook) {
+        VXCORE_LOG_WARN("Skipping buffer: notebook not found: notebook_id=%s, file_path=%s",
+                        record.notebook_id.c_str(), record.file_path.c_str());
+        continue;
+      }
+    }
+
+    // Check if file exists on disk before restoring
+    std::string full_path;
+    if (notebook) {
+      full_path = ConcatenatePaths(notebook->GetRootFolder(), record.file_path);
+    } else {
+      full_path = record.file_path;
+    }
+
+    if (!std::filesystem::exists(full_path)) {
+      VXCORE_LOG_WARN("Skipping buffer: file not found on disk: %s", full_path.c_str());
+      continue;
     }
 
     std::unique_ptr<Buffer> buffer;
     if (notebook) {
       buffer = std::make_unique<Buffer>(notebook, record.file_path);
-    } else if (record.notebook_id.empty()) {
+    } else {
       // External file
       buffer = std::make_unique<Buffer>(record.file_path);
-    } else {
-      // Notebook not found - skip this buffer
-      VXCORE_LOG_WARN("Skipping buffer: notebook not found: notebook_id=%s, file_path=%s",
-                      record.notebook_id.c_str(), record.file_path.c_str());
-      continue;
     }
 
     // Restore the original buffer ID from session config
@@ -58,7 +82,7 @@ void BufferManager::LoadBuffers() {
   VXCORE_LOG_INFO("Loaded %zu buffers from session", buffers_.size());
 }
 
-void BufferManager::SaveBuffers() {
+void BufferManager::UpdateSessionBuffers() {
   auto &session_config = config_manager_->GetSessionConfig();
   session_config.buffers.clear();
 
@@ -70,6 +94,11 @@ void BufferManager::SaveBuffers() {
     session_config.buffers.push_back(record);
   }
 
+  VXCORE_LOG_DEBUG("Updated %zu buffer records in session config", buffers_.size());
+}
+
+void BufferManager::SaveBuffers() {
+  UpdateSessionBuffers();
   config_manager_->SaveSessionConfig();
   VXCORE_LOG_DEBUG("Saved %zu buffers to session", buffers_.size());
 }
@@ -130,7 +159,6 @@ bool BufferManager::CloseBuffer(const std::string &id) {
   }
 
   buffers_.erase(it);
-  SaveBuffers();
   VXCORE_LOG_INFO("Closed buffer: id=%s", id.c_str());
   return true;
 }

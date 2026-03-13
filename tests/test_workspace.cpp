@@ -135,11 +135,14 @@ int test_workspace_delete() {
 int test_workspace_current() {
   std::cout << "  Running test_workspace_current..." << std::endl;
 
+  // Clear test directory to start fresh for this test
+  vxcore_clear_test_directory();
+
   VxCoreContextHandle ctx = nullptr;
   VxCoreError err = vxcore_context_create(nullptr, &ctx);
   ASSERT_EQ(err, VXCORE_OK);
 
-  // No default workspace - current should be empty initially
+  // No workspaces at all - current should be empty initially
   char *current_id = nullptr;
   err = vxcore_workspace_get_current(ctx, &current_id);
   ASSERT_EQ(err, VXCORE_OK);

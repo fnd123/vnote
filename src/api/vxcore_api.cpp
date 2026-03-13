@@ -110,9 +110,10 @@ VXCORE_API VxCoreError vxcore_context_create(const char *config_json,
     }
 
     ctx->notebook_manager = std::make_unique<vxcore::NotebookManager>(ctx->config_manager.get());
-    ctx->workspace_manager = std::make_unique<vxcore::WorkspaceManager>(ctx->config_manager.get());
     ctx->buffer_manager = std::make_unique<vxcore::BufferManager>(ctx->config_manager.get(),
                                                                   ctx->notebook_manager.get());
+    ctx->workspace_manager = std::make_unique<vxcore::WorkspaceManager>(ctx->config_manager.get(),
+                                                                        ctx->buffer_manager.get());
 
     *out_context = reinterpret_cast<VxCoreContextHandle>(ctx);
     return VXCORE_OK;
@@ -125,6 +126,45 @@ VXCORE_API void vxcore_context_destroy(VxCoreContextHandle context) {
   if (context) {
     auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
     delete ctx;
+  }
+}
+
+VXCORE_API VxCoreError vxcore_shutdown(VxCoreContextHandle context) {
+  if (!context) {
+    return VXCORE_ERR_NULL_POINTER;
+  }
+
+  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
+
+  // Idempotency guard: no-op if already shut down
+  if (ctx->shutdown_called) {
+    return VXCORE_OK;
+  }
+
+  try {
+    // Update in-memory session config (no disk write yet)
+    if (ctx->buffer_manager) {
+      ctx->buffer_manager->UpdateSessionBuffers();
+      ctx->buffer_manager->SetShutdownCalled(true);
+    }
+
+    if (ctx->workspace_manager) {
+      ctx->workspace_manager->UpdateSessionWorkspaces();
+      ctx->workspace_manager->SetShutdownCalled(true);
+    }
+
+    // Single atomic write to disk
+    if (ctx->config_manager) {
+      ctx->config_manager->SaveSessionConfig();
+    }
+
+    ctx->shutdown_called = true;
+    VXCORE_LOG_INFO("Shutdown complete: session state saved");
+    return VXCORE_OK;
+  } catch (const std::exception &e) {
+    VXCORE_LOG_ERROR("Shutdown failed: %s", e.what());
+    ctx->last_error = std::string("Shutdown failed: ") + e.what();
+    return VXCORE_ERR_UNKNOWN;
   }
 }
 
