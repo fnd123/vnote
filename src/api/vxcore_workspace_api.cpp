@@ -254,3 +254,45 @@ VXCORE_API VxCoreError vxcore_workspace_set_current_buffer(VxCoreContextHandle c
     return VXCORE_ERR_UNKNOWN;
   }
 }
+
+VXCORE_API VxCoreError vxcore_workspace_set_buffer_order(VxCoreContextHandle context,
+                                                         const char *workspace_id,
+                                                         const char *buffer_ids_json) {
+  if (!context || !workspace_id || !buffer_ids_json) {
+    return VXCORE_ERR_NULL_POINTER;
+  }
+
+  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
+  if (!ctx->workspace_manager) {
+    return VXCORE_ERR_NOT_INITIALIZED;
+  }
+
+  try {
+    auto json = nlohmann::json::parse(buffer_ids_json);
+    if (!json.is_array()) {
+      ctx->last_error = "buffer_ids_json must be a JSON array";
+      return VXCORE_ERR_JSON_PARSE;
+    }
+
+    std::vector<std::string> ids;
+    ids.reserve(json.size());
+    for (const auto &elem : json) {
+      if (elem.is_string()) {
+        ids.push_back(elem.get<std::string>());
+      }
+    }
+
+    bool success = ctx->workspace_manager->SetBufferOrder(workspace_id, ids);
+    if (!success) {
+      ctx->last_error = "Workspace not found";
+      return VXCORE_ERR_WORKSPACE_NOT_FOUND;
+    }
+    return VXCORE_OK;
+  } catch (const nlohmann::json::exception &e) {
+    ctx->last_error = std::string("JSON error: ") + e.what();
+    return VXCORE_ERR_JSON_PARSE;
+  } catch (const std::exception &e) {
+    ctx->last_error = std::string("Exception: ") + e.what();
+    return VXCORE_ERR_UNKNOWN;
+  }
+}

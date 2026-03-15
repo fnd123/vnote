@@ -48,6 +48,10 @@ class WorkspaceManager {
   // Set the current buffer in a workspace, returns true if successful
   bool SetCurrentBufferInWorkspace(const std::string &ws_id, const std::string &buf_id);
 
+  // Set the buffer order in a workspace, returns true if successful
+  // Only buffers already in the workspace are kept; unknown IDs are ignored.
+  bool SetBufferOrder(const std::string &ws_id, const std::vector<std::string> &buffer_ids);
+
   // Mark that shutdown has been called (prevents destructor from saving)
   void SetShutdownCalled(bool called) { shutdown_called_ = called; }
 

@@ -354,6 +354,13 @@ VXCORE_API VxCoreError vxcore_workspace_set_current_buffer(VxCoreContextHandle c
                                                            const char *workspace_id,
                                                            const char *buffer_id);
 
+// Set the buffer order in a workspace.
+// buffer_ids_json: JSON array of buffer ID strings defining the new order.
+// Only buffers already in the workspace are kept; unknown IDs are ignored.
+VXCORE_API VxCoreError vxcore_workspace_set_buffer_order(VxCoreContextHandle context,
+                                                         const char *workspace_id,
+                                                         const char *buffer_ids_json);
+
 // ============ Buffer Operations ============
 
 // Open a file as a buffer.

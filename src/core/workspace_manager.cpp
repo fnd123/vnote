@@ -1,6 +1,7 @@
 #include "workspace_manager.h"
 
 #include <algorithm>
+#include <set>
 
 #include "buffer_manager.h"
 #include "config_manager.h"
@@ -245,6 +246,54 @@ bool WorkspaceManager::SetCurrentBufferInWorkspace(const std::string &ws_id,
   it->second->current_buffer_id = buf_id;
   VXCORE_LOG_INFO("Set current buffer in workspace: ws_id=%s, buf_id=%s", ws_id.c_str(),
                   buf_id.c_str());
+  return true;
+}
+
+bool WorkspaceManager::SetBufferOrder(const std::string &ws_id,
+                                      const std::vector<std::string> &buffer_ids) {
+  auto it = workspaces_.find(ws_id);
+  if (it == workspaces_.end()) {
+    VXCORE_LOG_WARN("Cannot set buffer order in non-existent workspace: ws_id=%s", ws_id.c_str());
+    return false;
+  }
+
+  // Build a set of existing buffers for quick lookup.
+  auto &existing = it->second->buffer_ids;
+  std::set<std::string> existing_set(existing.begin(), existing.end());
+
+  VXCORE_LOG_INFO("SetBufferOrder: ws_id=%s, requested=%zu, existing=%zu", ws_id.c_str(),
+                  buffer_ids.size(), existing.size());
+  for (size_t i = 0; i < existing.size(); ++i) {
+    VXCORE_LOG_INFO("  existing[%zu]=%s", i, existing[i].c_str());
+  }
+  for (size_t i = 0; i < buffer_ids.size(); ++i) {
+    VXCORE_LOG_INFO("  requested[%zu]=%s", i, buffer_ids[i].c_str());
+  }
+
+  // Accept only IDs that are already in the workspace, in the new order.
+  std::vector<std::string> new_order;
+  new_order.reserve(buffer_ids.size());
+  std::set<std::string> seen;
+  for (const auto &id : buffer_ids) {
+    if (existing_set.count(id) && !seen.count(id)) {
+      new_order.push_back(id);
+      seen.insert(id);
+    }
+  }
+
+  // Append any existing buffers that were not in the new order (defensive).
+  for (const auto &id : existing) {
+    if (!seen.count(id)) {
+      new_order.push_back(id);
+    }
+  }
+
+  existing = std::move(new_order);
+  VXCORE_LOG_INFO("Set buffer order in workspace: ws_id=%s, count=%zu", ws_id.c_str(),
+                  existing.size());
+  for (size_t i = 0; i < existing.size(); ++i) {
+    VXCORE_LOG_INFO("  result[%zu]=%s", i, existing[i].c_str());
+  }
   return true;
 }
 
