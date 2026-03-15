@@ -358,48 +358,6 @@ VXCORE_API VxCoreError vxcore_buffer_is_modified(VxCoreContextHandle context, co
   }
 }
 
-VXCORE_API VxCoreError vxcore_buffer_auto_save_tick(VxCoreContextHandle context) {
-  if (!context) {
-    return VXCORE_ERR_NULL_POINTER;
-  }
-
-  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
-  if (!ctx->buffer_manager) {
-    return VXCORE_ERR_NOT_INITIALIZED;
-  }
-
-  try {
-    ctx->buffer_manager->AutoSaveTick();
-    return VXCORE_OK;
-  } catch (const std::exception &e) {
-    ctx->last_error = std::string("Exception: ") + e.what();
-    return VXCORE_ERR_UNKNOWN;
-  }
-}
-
-VXCORE_API VxCoreError vxcore_buffer_set_auto_save_interval(VxCoreContextHandle context,
-                                                            int64_t interval_ms) {
-  if (!context) {
-    return VXCORE_ERR_NULL_POINTER;
-  }
-  if (interval_ms < 0) {
-    return VXCORE_ERR_INVALID_PARAM;
-  }
-
-  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
-  if (!ctx->buffer_manager) {
-    return VXCORE_ERR_NOT_INITIALIZED;
-  }
-
-  try {
-    ctx->buffer_manager->SetAutoSaveInterval(interval_ms);
-    return VXCORE_OK;
-  } catch (const std::exception &e) {
-    ctx->last_error = std::string("Exception: ") + e.what();
-    return VXCORE_ERR_UNKNOWN;
-  }
-}
-
 // ============ Buffer Asset Operations (Filesystem Only) ============
 
 VXCORE_API VxCoreError vxcore_buffer_insert_asset_raw(VxCoreContextHandle context,

@@ -50,15 +50,8 @@ class BufferManager {
   // Set buffer content from raw memory
   VxCoreError SetBufferContent(const std::string &id, const void *data, size_t size);
 
-  // Auto-save tick: save modified buffers that exceed auto-save interval
-  void AutoSaveTick();
-
   // Close all buffers associated with a notebook
   void CloseBuffersForNotebook(const std::string &notebook_id);
-
-  // Get/set auto-save interval (milliseconds)
-  int64_t GetAutoSaveInterval() const { return auto_save_interval_ms_; }
-  void SetAutoSaveInterval(int64_t interval_ms) { auto_save_interval_ms_ = interval_ms; }
 
   // Get provider for a buffer (returns nullptr if unsupported or not found)
   IBufferProvider *GetProvider(const std::string &buffer_id);
@@ -78,7 +71,6 @@ class BufferManager {
   ConfigManager *config_manager_ = nullptr;
   NotebookManager *notebook_manager_ = nullptr;
   std::map<std::string, std::unique_ptr<Buffer>> buffers_;
-  int64_t auto_save_interval_ms_ = 30000;  // Default 30 seconds
   bool shutdown_called_ = false;
 };
 

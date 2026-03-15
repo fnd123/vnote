@@ -59,8 +59,8 @@ void BufferManager::LoadBuffers() {
     }
 
     bool exists = std::filesystem::exists(full_path);
-    VXCORE_LOG_INFO("LoadBuffers: id=%s, full_path=%s, exists=%d",
-                    record.id.c_str(), full_path.c_str(), exists ? 1 : 0);
+    VXCORE_LOG_INFO("LoadBuffers: id=%s, full_path=%s, exists=%d", record.id.c_str(),
+                    full_path.c_str(), exists ? 1 : 0);
 
     if (!exists) {
       VXCORE_LOG_WARN("Skipping buffer: file not found on disk: %s", full_path.c_str());
@@ -282,34 +282,6 @@ VxCoreError BufferManager::SetBufferContent(const std::string &id, const void *d
   buffer->SetContent(new_content);
   VXCORE_LOG_DEBUG("Set buffer content: id=%s, %zu bytes", id.c_str(), size);
   return VXCORE_OK;
-}
-
-void BufferManager::AutoSaveTick() {
-  int64_t current_time = GetCurrentTimestampMillis();
-  int saved_count = 0;
-
-  for (const auto &pair : buffers_) {
-    auto *buffer = pair.second.get();
-    if (!buffer->IsModified()) {
-      continue;
-    }
-
-    // Check if enough time has passed since last modification
-    int64_t time_since_modification = current_time - buffer->GetLastModifiedTime();
-    if (time_since_modification >= auto_save_interval_ms_) {
-      VxCoreError err = SaveBuffer(buffer->GetId());
-      if (err == VXCORE_OK) {
-        saved_count++;
-      } else {
-        VXCORE_LOG_WARN("Auto-save failed for buffer: id=%s, error=%d", buffer->GetId().c_str(),
-                        err);
-      }
-    }
-  }
-
-  if (saved_count > 0) {
-    VXCORE_LOG_DEBUG("Auto-saved %d buffers", saved_count);
-  }
 }
 
 void BufferManager::CloseBuffersForNotebook(const std::string &notebook_id) {

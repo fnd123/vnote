@@ -565,58 +565,6 @@ int test_buffer_is_modified() {
   return 0;
 }
 
-int test_buffer_auto_save() {
-  std::cout << "  Running test_buffer_auto_save..." << std::endl;
-  cleanup_test_dir(get_test_path("test_buffer_autosave"));
-
-  VxCoreContextHandle ctx = nullptr;
-  VxCoreError err = vxcore_context_create(nullptr, &ctx);
-  ASSERT_EQ(err, VXCORE_OK);
-
-  char *notebook_id = nullptr;
-  std::string notebook_path = get_test_path("test_buffer_autosave");
-  err = vxcore_notebook_create(ctx, notebook_path.c_str(), "{\"name\":\"Buffer Test\"}",
-                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
-  ASSERT_EQ(err, VXCORE_OK);
-
-  char *file_id = nullptr;
-  err = vxcore_file_create(ctx, notebook_id, ".", "test.md", &file_id);
-  ASSERT_EQ(err, VXCORE_OK);
-
-  char *buffer_id = nullptr;
-  err = vxcore_buffer_open(ctx, notebook_id, "test.md", &buffer_id);
-  ASSERT_EQ(err, VXCORE_OK);
-
-  // Set short auto-save interval for testing (1ms)
-  err = vxcore_buffer_set_auto_save_interval(ctx, 1);
-  ASSERT_EQ(err, VXCORE_OK);
-
-  // Modify content
-  const char *content = "Auto-save test content";
-  err = vxcore_buffer_set_content_raw(ctx, buffer_id, content, strlen(content));
-  ASSERT_EQ(err, VXCORE_OK);
-
-  // Wait for modification time to exceed auto-save interval
-  std::this_thread::sleep_for(std::chrono::milliseconds(5));
-
-  // Trigger auto-save
-  err = vxcore_buffer_auto_save_tick(ctx);
-  ASSERT_EQ(err, VXCORE_OK);
-
-  // Verify file was saved
-  std::string file_path = notebook_path + "/test.md";
-  std::string disk_content = read_file_content(file_path);
-  ASSERT_EQ(disk_content, std::string(content));
-
-  vxcore_string_free(buffer_id);
-  vxcore_string_free(file_id);
-  vxcore_string_free(notebook_id);
-  vxcore_context_destroy(ctx);
-  cleanup_test_dir(get_test_path("test_buffer_autosave"));
-  std::cout << "  ✓ test_buffer_auto_save passed" << std::endl;
-  return 0;
-}
-
 int test_buffer_notebook_close() {
   std::cout << "  Running test_buffer_notebook_close..." << std::endl;
   cleanup_test_dir(get_test_path("test_buffer_nb_close"));
@@ -1397,7 +1345,7 @@ int main() {
   RUN_TEST(test_buffer_external_file);
   RUN_TEST(test_buffer_state);
   RUN_TEST(test_buffer_is_modified);
-  RUN_TEST(test_buffer_auto_save);
+
   RUN_TEST(test_buffer_notebook_close);
   RUN_TEST(test_buffer_lazy_loading);
   RUN_TEST(test_buffer_persistence);

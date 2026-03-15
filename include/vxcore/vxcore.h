@@ -421,15 +421,6 @@ VXCORE_API VxCoreError vxcore_buffer_get_state(VxCoreContextHandle context, cons
 VXCORE_API VxCoreError vxcore_buffer_is_modified(VxCoreContextHandle context, const char *id,
                                                  int *out_modified);
 
-// Trigger auto-save for modified buffers.
-// Checks all buffers and saves those that have been modified beyond the auto-save interval.
-VXCORE_API VxCoreError vxcore_buffer_auto_save_tick(VxCoreContextHandle context);
-
-// Set auto-save interval in milliseconds.
-// interval_ms: Auto-save interval (must be >= 0). Default is 30000ms (30 seconds).
-VXCORE_API VxCoreError vxcore_buffer_set_auto_save_interval(VxCoreContextHandle context,
-                                                            int64_t interval_ms);
-
 // ============ Buffer Asset Operations (Filesystem Only) ============
 // Asset operations only touch the filesystem, they do NOT modify attachment metadata.
 // Use these for embedding inline content (images, diagrams) that don't need tracking.
