@@ -460,7 +460,7 @@ VXCORE_API VxCoreError vxcore_buffer_get_backup_path(VxCoreContextHandle context
       return err;
     }
 
-    *out_path = strdup(path.c_str());
+    *out_path = vxcore_strdup(path.c_str());
     return VXCORE_OK;
   } catch (const std::exception &e) {
     ctx->last_error = std::string("Exception: ") + e.what();
