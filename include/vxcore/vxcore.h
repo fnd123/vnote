@@ -421,6 +421,13 @@ VXCORE_API VxCoreError vxcore_buffer_get_state(VxCoreContextHandle context, cons
 VXCORE_API VxCoreError vxcore_buffer_is_modified(VxCoreContextHandle context, const char *id,
                                                  int *out_modified);
 
+// Get buffer content revision number.
+// Lightweight — avoids full JSON serialization of vxcore_buffer_get.
+// The revision is incremented on content changes (SetContent, Save, Reload).
+// out_revision: receives current revision counter.
+VXCORE_API VxCoreError vxcore_buffer_get_revision(VxCoreContextHandle context, const char *id,
+                                                   int *out_revision);
+
 // ============ Buffer Backup Operations ============
 
 // Write buffer's in-memory content to a backup file (.vswp).

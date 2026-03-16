@@ -566,6 +566,91 @@ int test_buffer_is_modified() {
   return 0;
 }
 
+int test_buffer_get_revision() {
+  std::cout << "  Running test_buffer_get_revision..." << std::endl;
+  cleanup_test_dir(get_test_path("test_buffer_revision"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  std::string notebook_path = get_test_path("test_buffer_revision");
+  err = vxcore_notebook_create(ctx, notebook_path.c_str(), "{\"name\":\"Revision Test\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "test.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Write initial content to disk
+  std::string file_path = notebook_path + "/test.md";
+  create_test_file(file_path, "Initial content");
+
+  char *buffer_id = nullptr;
+  err = vxcore_buffer_open(ctx, notebook_id, "test.md", &buffer_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Get initial revision (before content loaded)
+  int revision = -1;
+  err = vxcore_buffer_get_revision(ctx, buffer_id, &revision);
+  ASSERT_EQ(err, VXCORE_OK);
+  int initial_rev = revision;
+
+  // Load content (triggers lazy loading)
+  const void *content_ptr = nullptr;
+  size_t content_size = 0;
+  err = vxcore_buffer_get_content_raw(ctx, buffer_id, &content_ptr, &content_size);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Set content — revision should increment
+  const char *new_content = "Modified content";
+  err = vxcore_buffer_set_content_raw(ctx, buffer_id, new_content, strlen(new_content));
+  ASSERT_EQ(err, VXCORE_OK);
+
+  int after_set_rev = -1;
+  err = vxcore_buffer_get_revision(ctx, buffer_id, &after_set_rev);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_TRUE(after_set_rev > initial_rev);
+
+  // Save — revision should increment again
+  err = vxcore_buffer_save(ctx, buffer_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  int after_save_rev = -1;
+  err = vxcore_buffer_get_revision(ctx, buffer_id, &after_save_rev);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_TRUE(after_save_rev > after_set_rev);
+
+  // Verify get_revision matches the JSON "revision" field from buffer_get
+  char *buffer_json = nullptr;
+  err = vxcore_buffer_get(ctx, buffer_id, &buffer_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  auto json = nlohmann::json::parse(buffer_json);
+  ASSERT_EQ(json["revision"].get<int>(), after_save_rev);
+  vxcore_string_free(buffer_json);
+
+  // Error cases
+  int dummy = -1;
+  err = vxcore_buffer_get_revision(ctx, "nonexistent_id", &dummy);
+  ASSERT_EQ(err, VXCORE_ERR_BUFFER_NOT_FOUND);
+
+  err = vxcore_buffer_get_revision(nullptr, buffer_id, &dummy);
+  ASSERT_EQ(err, VXCORE_ERR_NULL_POINTER);
+
+  err = vxcore_buffer_get_revision(ctx, buffer_id, nullptr);
+  ASSERT_EQ(err, VXCORE_ERR_NULL_POINTER);
+
+  vxcore_string_free(buffer_id);
+  vxcore_string_free(file_id);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_buffer_revision"));
+  std::cout << "  ✓ test_buffer_get_revision passed" << std::endl;
+  return 0;
+}
+
 int test_buffer_write_backup() {
   std::cout << "  Running test_buffer_write_backup..." << std::endl;
   cleanup_test_dir(get_test_path("test_buffer_write_backup"));
@@ -1900,6 +1985,7 @@ int main() {
   RUN_TEST(test_buffer_external_file);
   RUN_TEST(test_buffer_state);
   RUN_TEST(test_buffer_is_modified);
+  RUN_TEST(test_buffer_get_revision);
 
   // Buffer Backup Tests
   RUN_TEST(test_buffer_write_backup);

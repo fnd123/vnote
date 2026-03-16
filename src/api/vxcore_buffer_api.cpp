@@ -358,6 +358,32 @@ VXCORE_API VxCoreError vxcore_buffer_is_modified(VxCoreContextHandle context, co
   }
 }
 
+VXCORE_API VxCoreError vxcore_buffer_get_revision(VxCoreContextHandle context, const char *id,
+                                                   int *out_revision) {
+  if (!context || !id || !out_revision) {
+    return VXCORE_ERR_NULL_POINTER;
+  }
+
+  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
+  if (!ctx->buffer_manager) {
+    return VXCORE_ERR_NOT_INITIALIZED;
+  }
+
+  try {
+    auto *buffer = ctx->buffer_manager->GetBuffer(id);
+    if (!buffer) {
+      ctx->last_error = "Buffer not found";
+      return VXCORE_ERR_BUFFER_NOT_FOUND;
+    }
+
+    *out_revision = buffer->GetRevision();
+    return VXCORE_OK;
+  } catch (const std::exception &e) {
+    ctx->last_error = std::string("Exception: ") + e.what();
+    return VXCORE_ERR_UNKNOWN;
+  }
+}
+
 // ============ Buffer Backup Operations ============
 
 VXCORE_API VxCoreError vxcore_buffer_write_backup(VxCoreContextHandle context, const char *id) {
