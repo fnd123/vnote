@@ -51,4 +51,10 @@ test_notebook
 
 .sisyphus
 
+# GitHub Spec Kit related files.
 .claude
+.specify
+specs
+plans
+
+nul
