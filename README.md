@@ -8,7 +8,6 @@ vxcore is a cross-platform C/C++ library providing notebook management functiona
 - **File Operations**: Create, delete, rename, move, copy files with metadata
 - **Tag System**: Create tags at notebook level, apply/remove tags on files
 - **Configuration**: JSON-based configuration with session persistence
-- **Events**: Typed event notifications for UI synchronization (future)
 - **Search**: Integration with external search tools (future)
 
 ## API Usage

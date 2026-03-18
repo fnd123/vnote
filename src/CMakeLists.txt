@@ -1,7 +1,6 @@
 set(VXCORE_PUBLIC_HEADERS
     ${PROJECT_SOURCE_DIR}/include/vxcore/vxcore.h
     ${PROJECT_SOURCE_DIR}/include/vxcore/vxcore_types.h
-    ${PROJECT_SOURCE_DIR}/include/vxcore/vxcore_events.h
     ${PROJECT_SOURCE_DIR}/include/vxcore/vxcore_log.h
 )
 
@@ -15,7 +14,6 @@ set(VXCORE_SOURCES
     api/vxcore_filetype_api.cpp
     api/vxcore_workspace_api.cpp
     api/vxcore_buffer_api.cpp
-    api/vxcore_events.cpp
     api/handle_manager.cpp
     api/error_handler.cpp
     core/config_manager.cpp

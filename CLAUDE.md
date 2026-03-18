@@ -134,7 +134,6 @@ C API (vxcore_*)
 |--------|----------|
 | `vxcore.h` | All C API functions (context, notebook, folder, file, node, tag, search, buffer, workspace) |
 | `vxcore_types.h` | Error codes (`VxCoreError`), handles (`VxCoreContextHandle`), enums, version struct |
-| `vxcore_events.h` | Event types and callback registration |
 | `vxcore_log.h` | Log level control and file/console output |
 
 ### Thread Safety

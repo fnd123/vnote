@@ -88,7 +88,6 @@ vxcore/
 ├── include/vxcore/          # Public C API headers
 │   ├── vxcore.h             # Main API (context, notebook, folder, file, tag, search)
 │   ├── vxcore_types.h       # Error codes, handles, version struct
-│   ├── vxcore_events.h      # Event types and callbacks
 │   └── vxcore_log.h         # Logging API
 │
 ├── src/
