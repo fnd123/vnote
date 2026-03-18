@@ -15,9 +15,9 @@
 namespace vxcore {
 
 // Persist full session state (buffers + workspaces) to disk.
-// Skips if skip_sync_to_session flag is set on the context.
+// No-op after vxcore_prepare_shutdown() to preserve the snapshot.
 inline void PersistSession(VxCoreContext *ctx) {
-  if (!ctx || ctx->skip_sync_to_session) {
+  if (!ctx || ctx->shutdown_called) {
     return;
   }
   if (ctx->buffer_manager) {

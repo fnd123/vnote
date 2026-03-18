@@ -128,7 +128,7 @@ int test_session_recovery_enabled() {
     ASSERT_EQ(err, VXCORE_OK);
 
     // Shutdown to persist state
-    err = vxcore_shutdown(ctx);
+    err = vxcore_prepare_shutdown(ctx);
     ASSERT_EQ(err, VXCORE_OK);
 
     vxcore_string_free(buf1_id);
@@ -175,7 +175,7 @@ int test_session_recovery_enabled() {
     ASSERT_EQ(std::string(current_ws), ws_id_str);
     vxcore_string_free(current_ws);
 
-    vxcore_shutdown(ctx);
+    vxcore_prepare_shutdown(ctx);
     vxcore_context_destroy(ctx);
   }
 
@@ -209,7 +209,7 @@ int test_session_recovery_disabled() {
     err = vxcore_workspace_add_buffer(ctx, ws_id, buf_id);
     ASSERT_EQ(err, VXCORE_OK);
 
-    err = vxcore_shutdown(ctx);
+    err = vxcore_prepare_shutdown(ctx);
     ASSERT_EQ(err, VXCORE_OK);
 
     vxcore_string_free(buf_id);
@@ -248,7 +248,7 @@ int test_session_recovery_disabled() {
     ASSERT_EQ(ws_list_str, std::string("[]"));
     vxcore_string_free(ws_list);
 
-    vxcore_shutdown(ctx);
+    vxcore_prepare_shutdown(ctx);
     vxcore_context_destroy(ctx);
   }
 
@@ -298,7 +298,7 @@ int test_missing_files_skipped() {
     err = vxcore_workspace_set_current_buffer(ctx, ws_id, buf2_id);
     ASSERT_EQ(err, VXCORE_OK);
 
-    err = vxcore_shutdown(ctx);
+    err = vxcore_prepare_shutdown(ctx);
     ASSERT_EQ(err, VXCORE_OK);
 
     vxcore_string_free(buf1_id);
@@ -341,7 +341,7 @@ int test_missing_files_skipped() {
     nlohmann::json ws_parsed = nlohmann::json::parse(ws_str);
     ASSERT_EQ(ws_parsed["currentBufferId"].get<std::string>(), buf1_id_str);
 
-    vxcore_shutdown(ctx);
+    vxcore_prepare_shutdown(ctx);
     vxcore_context_destroy(ctx);
   }
 
@@ -384,7 +384,7 @@ int test_save_on_create_and_close() {
     ASSERT_EQ(session2["buffers"].size(), 0u);
 
     vxcore_string_free(buf_id);
-    vxcore_shutdown(ctx);
+    vxcore_prepare_shutdown(ctx);
     vxcore_context_destroy(ctx);
   }
 
@@ -421,7 +421,7 @@ int test_shutdown_prevents_destructor_save() {
     ASSERT_EQ(err, VXCORE_OK);
 
     // Shutdown saves the correct state
-    err = vxcore_shutdown(ctx);
+    err = vxcore_prepare_shutdown(ctx);
     ASSERT_EQ(err, VXCORE_OK);
 
     // Verify session file has the correct data after shutdown
@@ -478,65 +478,11 @@ int test_workspace_create_and_delete_saves_session() {
     ASSERT_EQ(session2["workspaces"].size(), 0u);
 
     vxcore_string_free(ws_id);
-    vxcore_shutdown(ctx);
+    vxcore_prepare_shutdown(ctx);
     vxcore_context_destroy(ctx);
   }
 
   std::cout << "  ✓ test_workspace_create_and_delete_saves_session passed" << std::endl;
-  return 0;
-}
-
-int test_skip_sync_flag() {
-  std::cout << "  Running test_skip_sync_flag..." << std::endl;
-
-  vxcore_clear_test_directory();
-
-  {
-    VxCoreContextHandle ctx = nullptr;
-    VxCoreError err = vxcore_context_create(nullptr, &ctx);
-    ASSERT_EQ(err, VXCORE_OK);
-
-    // Default should be 0 (not skipping)
-    int skip = -1;
-    err = vxcore_session_get_skip_sync(ctx, &skip);
-    ASSERT_EQ(err, VXCORE_OK);
-    ASSERT_EQ(skip, 0);
-
-    // Set skip to 1
-    err = vxcore_session_set_skip_sync(ctx, 1);
-    ASSERT_EQ(err, VXCORE_OK);
-
-    err = vxcore_session_get_skip_sync(ctx, &skip);
-    ASSERT_EQ(err, VXCORE_OK);
-    ASSERT_EQ(skip, 1);
-
-    // Set skip back to 0
-    err = vxcore_session_set_skip_sync(ctx, 0);
-    ASSERT_EQ(err, VXCORE_OK);
-
-    err = vxcore_session_get_skip_sync(ctx, &skip);
-    ASSERT_EQ(err, VXCORE_OK);
-    ASSERT_EQ(skip, 0);
-
-    // Verify skip flag suppresses session writes
-    err = vxcore_session_set_skip_sync(ctx, 1);
-    ASSERT_EQ(err, VXCORE_OK);
-
-    // Create workspace with skip enabled — session file should NOT be updated
-    char *ws_id = nullptr;
-    err = vxcore_workspace_create(ctx, "Skip Test WS", &ws_id);
-    ASSERT_EQ(err, VXCORE_OK);
-
-    nlohmann::json session = read_session_file();
-    // Session file should not have the workspace (skip was on)
-    ASSERT_EQ(session["workspaces"].size(), 0u);
-
-    vxcore_string_free(ws_id);
-    vxcore_shutdown(ctx);
-    vxcore_context_destroy(ctx);
-  }
-
-  std::cout << "  ✓ test_skip_sync_flag passed" << std::endl;
   return 0;
 }
 
@@ -656,7 +602,7 @@ int test_all_mutations_persist() {
     vxcore_string_free(buf1_id);
     vxcore_string_free(buf2_id);
     vxcore_string_free(ws_id);
-    vxcore_shutdown(ctx);
+    vxcore_prepare_shutdown(ctx);
     vxcore_context_destroy(ctx);
   }
 
@@ -709,7 +655,7 @@ int test_remove_buffer_orphan_auto_close() {
 
     vxcore_string_free(buf_id);
     vxcore_string_free(ws_id);
-    vxcore_shutdown(ctx);
+    vxcore_prepare_shutdown(ctx);
     vxcore_context_destroy(ctx);
   }
 
@@ -773,7 +719,7 @@ int test_remove_buffer_not_orphaned() {
     vxcore_string_free(buf_id);
     vxcore_string_free(ws1_id);
     vxcore_string_free(ws2_id);
-    vxcore_shutdown(ctx);
+    vxcore_prepare_shutdown(ctx);
     vxcore_context_destroy(ctx);
   }
 
@@ -782,79 +728,159 @@ int test_remove_buffer_not_orphaned() {
   return 0;
 }
 
-int test_skip_sync_during_shutdown_sequence() {
-  std::cout << "  Running test_skip_sync_during_shutdown_sequence..." << std::endl;
+int test_cancel_shutdown_resumes_mutations() {
+  std::cout << "  Running test_cancel_shutdown_resumes_mutations..." << std::endl;
 
   vxcore_clear_test_directory();
   cleanup_temp_files();
 
-  std::string file1 = create_temp_file("shutdown_skip.md", "# Shutdown Skip");
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
 
+  // Create a workspace with a buffer.
+  char *ws_id = nullptr;
+  err = vxcore_workspace_create(ctx, "Cancel Test WS", &ws_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  std::string ws_id_str(ws_id);
+
+  // Open a real buffer (create temp file first).
+  auto temp_path = create_temp_file("cancel_test.md", "# Cancel test");
+  char *buf_id = nullptr;
+  err = vxcore_buffer_open(ctx, nullptr, temp_path.c_str(), &buf_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  std::string buf_id_str(buf_id);
+
+  err = vxcore_workspace_add_buffer(ctx, ws_id, buf_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Prepare shutdown — snapshots session to disk.
+  err = vxcore_prepare_shutdown(ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Cancel shutdown — resume normal operation.
+  err = vxcore_cancel_shutdown(ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // After cancel, mutations should sync to session again.
+  // Open another buffer.
+  auto temp_path2 = create_temp_file("cancel_test2.md", "# Cancel test 2");
+  char *buf2_id = nullptr;
+  err = vxcore_buffer_open(ctx, nullptr, temp_path2.c_str(), &buf2_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  std::string buf2_id_str(buf2_id);
+
+  err = vxcore_workspace_add_buffer(ctx, ws_id, buf2_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Read session file — should have 2 buffers in workspace (mutation synced).
+  nlohmann::json session = read_session_file();
+  ASSERT_EQ(session["workspaces"].size(), 1u);
+  auto ws_buffers = session["workspaces"][0]["bufferIds"];
+  ASSERT_EQ(ws_buffers.size(), 2u);
+
+  vxcore_string_free(ws_id);
+  vxcore_string_free(buf_id);
+  vxcore_string_free(buf2_id);
+  vxcore_prepare_shutdown(ctx);
+  vxcore_context_destroy(ctx);
+
+  cleanup_temp_files();
+  std::cout << "  ✓ test_cancel_shutdown_resumes_mutations passed" << std::endl;
+  return 0;
+}
+
+int test_prepare_shutdown_snapshots_before_buffer_close() {
+  std::cout << "  Running test_prepare_shutdown_snapshots_before_buffer_close..." << std::endl;
+
+  vxcore_clear_test_directory();
+  cleanup_temp_files();
+
+  std::string ws_id_str;
+  std::string buf_a_str, buf_b_str;
+
+  // Phase 1: Set up workspace with 2 buffers, prepare shutdown, then close buffers.
   {
     VxCoreContextHandle ctx = nullptr;
     VxCoreError err = vxcore_context_create(nullptr, &ctx);
     ASSERT_EQ(err, VXCORE_OK);
 
-    // Set skip flag
-    err = vxcore_session_set_skip_sync(ctx, 1);
-    ASSERT_EQ(err, VXCORE_OK);
-
-    // Open buffer — should NOT write to disk
-    char *buf_id = nullptr;
-    err = vxcore_buffer_open(ctx, nullptr, file1.c_str(), &buf_id);
-    ASSERT_EQ(err, VXCORE_OK);
-
-    nlohmann::json s1 = read_session_file();
-    ASSERT_EQ(s1["buffers"].size(), 0u);
-
-    // Create workspace — should NOT write to disk
     char *ws_id = nullptr;
-    err = vxcore_workspace_create(ctx, "Skip Shutdown WS", &ws_id);
+    err = vxcore_workspace_create(ctx, "Snapshot Test", &ws_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    ws_id_str = std::string(ws_id);
+
+    err = vxcore_workspace_set_current(ctx, ws_id);
     ASSERT_EQ(err, VXCORE_OK);
 
-    nlohmann::json s2 = read_session_file();
-    ASSERT_EQ(s2["workspaces"].size(), 0u);
+    auto path_a = create_temp_file("snap_a.md", "# A");
+    auto path_b = create_temp_file("snap_b.md", "# B");
 
-    // Add buffer to workspace — should NOT write to disk
-    err = vxcore_workspace_add_buffer(ctx, ws_id, buf_id);
+    char *buf_a = nullptr;
+    err = vxcore_buffer_open(ctx, nullptr, path_a.c_str(), &buf_a);
+    ASSERT_EQ(err, VXCORE_OK);
+    buf_a_str = std::string(buf_a);
+
+    char *buf_b = nullptr;
+    err = vxcore_buffer_open(ctx, nullptr, path_b.c_str(), &buf_b);
+    ASSERT_EQ(err, VXCORE_OK);
+    buf_b_str = std::string(buf_b);
+
+    err = vxcore_workspace_add_buffer(ctx, ws_id, buf_a);
+    ASSERT_EQ(err, VXCORE_OK);
+    err = vxcore_workspace_add_buffer(ctx, ws_id, buf_b);
     ASSERT_EQ(err, VXCORE_OK);
 
-    nlohmann::json s3 = read_session_file();
-    ASSERT_EQ(s3["workspaces"].size(), 0u);
-
-    // Close buffer — should NOT write to disk
-    err = vxcore_buffer_close(ctx, buf_id);
+    // THIS IS THE KEY: prepare_shutdown snapshots BEFORE buffer close.
+    err = vxcore_prepare_shutdown(ctx);
     ASSERT_EQ(err, VXCORE_OK);
 
-    nlohmann::json s4 = read_session_file();
-    ASSERT_EQ(s4["buffers"].size(), 0u);
+    // Now close all buffers (simulating closeAllBuffers in Qt layer).
+    // Since shutdown_called is set, destructor won't overwrite session.
+    err = vxcore_workspace_remove_buffer(ctx, ws_id, buf_a);
+    // In-memory mutation happens but PersistSession is blocked by shutdown_called.
 
-    // Delete workspace — should NOT write to disk
-    err = vxcore_workspace_delete(ctx, ws_id);
-    ASSERT_EQ(err, VXCORE_OK);
+    err = vxcore_workspace_remove_buffer(ctx, ws_id, buf_b);
 
-    nlohmann::json s5 = read_session_file();
-    ASSERT_EQ(s5["workspaces"].size(), 0u);
-
-    // Clear skip flag
-    err = vxcore_session_set_skip_sync(ctx, 0);
-    ASSERT_EQ(err, VXCORE_OK);
-
-    // Shutdown should write the correct final state (0 buffers, 0 workspaces)
-    err = vxcore_shutdown(ctx);
-    ASSERT_EQ(err, VXCORE_OK);
-
-    nlohmann::json s6 = read_session_file();
-    ASSERT_EQ(s6["buffers"].size(), 0u);
-    ASSERT_EQ(s6["workspaces"].size(), 0u);
-
-    vxcore_string_free(buf_id);
     vxcore_string_free(ws_id);
+    vxcore_string_free(buf_a);
+    vxcore_string_free(buf_b);
+    vxcore_context_destroy(ctx);
+  }
+
+  // Phase 2: Reload and verify the saved session still has workspace with buffers.
+  {
+    VxCoreContextHandle ctx = nullptr;
+    VxCoreError err = vxcore_context_create(nullptr, &ctx);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    // The workspace should exist because prepare_shutdown saved it before removal.
+    char *ws_json = nullptr;
+    err = vxcore_workspace_get(ctx, ws_id_str.c_str(), &ws_json);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(ws_json);
+
+    nlohmann::json ws = nlohmann::json::parse(ws_json);
+    ASSERT_EQ(ws["name"].get<std::string>(), std::string("Snapshot Test"));
+
+    // The workspace should have 2 buffers (snapshot was taken before removal).
+    auto buf_ids = ws["bufferIds"];
+    ASSERT_EQ(buf_ids.size(), 2u);
+
+    // Verify current workspace was saved.
+    char *current_ws = nullptr;
+    err = vxcore_workspace_get_current(ctx, &current_ws);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_EQ(std::string(current_ws), ws_id_str);
+
+    vxcore_string_free(ws_json);
+    vxcore_string_free(current_ws);
+    vxcore_prepare_shutdown(ctx);
     vxcore_context_destroy(ctx);
   }
 
   cleanup_temp_files();
-  std::cout << "  ✓ test_skip_sync_during_shutdown_sequence passed" << std::endl;
+  std::cout << "  ✓ test_prepare_shutdown_snapshots_before_buffer_close passed" << std::endl;
   return 0;
 }
 
@@ -871,11 +897,11 @@ int main() {
   RUN_TEST(test_save_on_create_and_close);
   RUN_TEST(test_shutdown_prevents_destructor_save);
   RUN_TEST(test_workspace_create_and_delete_saves_session);
-  RUN_TEST(test_skip_sync_flag);
   RUN_TEST(test_all_mutations_persist);
   RUN_TEST(test_remove_buffer_orphan_auto_close);
   RUN_TEST(test_remove_buffer_not_orphaned);
-  RUN_TEST(test_skip_sync_during_shutdown_sequence);
+  RUN_TEST(test_cancel_shutdown_resumes_mutations);
+  RUN_TEST(test_prepare_shutdown_snapshots_before_buffer_close);
 
   std::cout << "All session persistence tests passed!" << std::endl;
   return 0;

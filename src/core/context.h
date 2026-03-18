@@ -22,7 +22,6 @@ struct VxCoreContext {
   std::unique_ptr<WorkspaceManager> workspace_manager;
   std::string last_error;
   bool shutdown_called = false;
-  bool skip_sync_to_session = false;
 };
 
 }  // namespace vxcore

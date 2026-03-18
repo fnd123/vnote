@@ -28,11 +28,15 @@ VXCORE_API VxCoreError vxcore_context_create(const char *config_json,
 
 VXCORE_API void vxcore_context_destroy(VxCoreContextHandle context);
 
-// Persist all in-memory state (buffers, workspaces) to session config on disk.
-// Call this before vxcore_context_destroy() for a clean shutdown.
-// After calling this, the destructors will skip their own save to avoid
-// overwriting the snapshot with partial state.
-VXCORE_API VxCoreError vxcore_shutdown(VxCoreContextHandle context);
+// Snapshot current session state (buffers, workspaces) to disk.
+// Sets the shutdown_called flag, preventing destructor double-saves.
+// Idempotent: no-op if already called.
+VXCORE_API VxCoreError vxcore_prepare_shutdown(VxCoreContextHandle context);
+
+// Reset the shutdown_called flag so normal mutations resume.
+// Safe to call in any state (no-op if not in shutdown state).
+// Use when the application's close operation is cancelled by the user.
+VXCORE_API VxCoreError vxcore_cancel_shutdown(VxCoreContextHandle context);
 
 VXCORE_API VxCoreError vxcore_context_get_last_error(VxCoreContextHandle context,
                                                      const char **out_message);
@@ -567,17 +571,6 @@ VXCORE_API VxCoreError vxcore_buffer_list_attachments(VxCoreContextHandle contex
 //           Caller must free with vxcore_string_free.
 VXCORE_API VxCoreError vxcore_buffer_get_attachments_folder(VxCoreContextHandle context,
                                                             const char *buffer_id, char **out_path);
-
-// ============ Session Sync Control ============
-
-// Set whether session sync should be skipped after each mutation.
-// Used during shutdown to avoid N disk writes when closing N buffers.
-// skip: 1 to suppress session writes, 0 to enable (default).
-VXCORE_API VxCoreError vxcore_session_set_skip_sync(VxCoreContextHandle context, int skip);
-
-// Get current skip_sync_to_session state.
-// out_skip: receives 1 if sync is skipped, 0 otherwise.
-VXCORE_API VxCoreError vxcore_session_get_skip_sync(VxCoreContextHandle context, int *out_skip);
 
 VXCORE_API void vxcore_string_free(char *str);
 

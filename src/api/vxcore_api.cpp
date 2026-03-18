@@ -129,7 +129,7 @@ VXCORE_API void vxcore_context_destroy(VxCoreContextHandle context) {
   }
 }
 
-VXCORE_API VxCoreError vxcore_shutdown(VxCoreContextHandle context) {
+VXCORE_API VxCoreError vxcore_prepare_shutdown(VxCoreContextHandle context) {
   if (!context) {
     return VXCORE_ERR_NULL_POINTER;
   }
@@ -166,6 +166,32 @@ VXCORE_API VxCoreError vxcore_shutdown(VxCoreContextHandle context) {
     ctx->last_error = std::string("Shutdown failed: ") + e.what();
     return VXCORE_ERR_UNKNOWN;
   }
+}
+
+VXCORE_API VxCoreError vxcore_cancel_shutdown(VxCoreContextHandle context) {
+  if (!context) {
+    return VXCORE_ERR_NULL_POINTER;
+  }
+
+  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
+
+  // No-op if not in shutdown state.
+  if (!ctx->shutdown_called) {
+    return VXCORE_OK;
+  }
+
+  ctx->shutdown_called = false;
+
+  if (ctx->buffer_manager) {
+    ctx->buffer_manager->SetShutdownCalled(false);
+  }
+
+  if (ctx->workspace_manager) {
+    ctx->workspace_manager->SetShutdownCalled(false);
+  }
+
+  VXCORE_LOG_INFO("Shutdown cancelled: normal operation resumed");
+  return VXCORE_OK;
 }
 
 VXCORE_API VxCoreError vxcore_context_get_last_error(VxCoreContextHandle context,
@@ -441,23 +467,5 @@ VXCORE_API VxCoreError vxcore_log_set_file(const char *path) {
 
 VXCORE_API VxCoreError vxcore_log_enable_console(int enable) {
   vxcore::Logger::GetInstance().EnableConsole(enable != 0);
-  return VXCORE_OK;
-}
-
-VXCORE_API VxCoreError vxcore_session_set_skip_sync(VxCoreContextHandle context, int skip) {
-  if (!context) {
-    return VXCORE_ERR_NULL_POINTER;
-  }
-  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
-  ctx->skip_sync_to_session = (skip != 0);
-  return VXCORE_OK;
-}
-
-VXCORE_API VxCoreError vxcore_session_get_skip_sync(VxCoreContextHandle context, int *out_skip) {
-  if (!context || !out_skip) {
-    return VXCORE_ERR_NULL_POINTER;
-  }
-  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
-  *out_skip = ctx->skip_sync_to_session ? 1 : 0;
   return VXCORE_OK;
 }

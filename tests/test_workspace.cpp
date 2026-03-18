@@ -1,4 +1,7 @@
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <string>
 
 #include "test_utils.h"
@@ -297,6 +300,236 @@ int test_workspace_persistence() {
   return 0;
 }
 
+// Helper: create a temp file that can be opened as an external buffer.
+static std::string create_ws_temp_file(const std::string &name, const std::string &content) {
+  auto dir = std::filesystem::temp_directory_path() / "vxcore_test_data" / "workspace_test";
+  std::filesystem::create_directories(dir);
+  auto path = dir / name;
+  std::ofstream file(path, std::ios::binary);
+  file << content;
+  file.close();
+  std::string result = path.string();
+  std::replace(result.begin(), result.end(), '\\', '/');
+  return result;
+}
+
+static void cleanup_ws_temp_files() {
+  std::error_code ec;
+  std::filesystem::remove_all(
+      std::filesystem::temp_directory_path() / "vxcore_test_data" / "workspace_test", ec);
+}
+
+// Regression test: vxcore_prepare_shutdown() correctly persists workspace buffers.
+// Verifies the "save session before closing buffers" pattern works.
+int test_workspace_shutdown_saves_buffers() {
+  std::cout << "  Running test_workspace_shutdown_saves_buffers..." << std::endl;
+
+  vxcore_clear_test_directory();
+  cleanup_ws_temp_files();
+
+  std::string file_a = create_ws_temp_file("buf-a.md", "# Buffer A");
+  std::string file_b = create_ws_temp_file("buf-b.md", "# Buffer B");
+
+  std::string ws_id_str;
+  std::string buf_a_id_str;
+  std::string buf_b_id_str;
+
+  // Session 1: Create workspace with buffers, shutdown to persist.
+  {
+    VxCoreContextHandle ctx = nullptr;
+    VxCoreError err = vxcore_context_create(nullptr, &ctx);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    char *buf_a_id = nullptr;
+    err = vxcore_buffer_open(ctx, nullptr, file_a.c_str(), &buf_a_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(buf_a_id);
+    buf_a_id_str = buf_a_id;
+
+    char *buf_b_id = nullptr;
+    err = vxcore_buffer_open(ctx, nullptr, file_b.c_str(), &buf_b_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(buf_b_id);
+    buf_b_id_str = buf_b_id;
+
+    char *ws_id = nullptr;
+    err = vxcore_workspace_create(ctx, "WS1", &ws_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    ws_id_str = ws_id;
+
+    err = vxcore_workspace_add_buffer(ctx, ws_id, buf_a_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    err = vxcore_workspace_add_buffer(ctx, ws_id, buf_b_id);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    err = vxcore_workspace_set_current(ctx, ws_id);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    // Shutdown persists workspace state (including buffer list).
+    err = vxcore_prepare_shutdown(ctx);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    vxcore_string_free(buf_a_id);
+    vxcore_string_free(buf_b_id);
+    vxcore_string_free(ws_id);
+    vxcore_context_destroy(ctx);
+  }
+
+  // Session 2: Reload and verify workspace + buffers survived.
+  {
+    VxCoreContextHandle ctx = nullptr;
+    VxCoreError err = vxcore_context_create(nullptr, &ctx);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    // Workspace should exist.
+    char *ws_json = nullptr;
+    err = vxcore_workspace_get(ctx, ws_id_str.c_str(), &ws_json);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(ws_json);
+
+    auto parsed = nlohmann::json::parse(ws_json);
+    ASSERT_EQ(parsed["name"].get<std::string>(), std::string("WS1"));
+
+    // bufferIds should contain both buffers.
+    auto buffer_ids = parsed["bufferIds"];
+    ASSERT_TRUE(buffer_ids.is_array());
+    ASSERT_EQ(buffer_ids.size(), 2u);
+
+    bool found_a = false;
+    bool found_b = false;
+    for (const auto &id : buffer_ids) {
+      if (id.get<std::string>() == buf_a_id_str) found_a = true;
+      if (id.get<std::string>() == buf_b_id_str) found_b = true;
+    }
+    ASSERT_TRUE(found_a);
+    ASSERT_TRUE(found_b);
+
+    // Current workspace should be WS1.
+    char *current_ws = nullptr;
+    err = vxcore_workspace_get_current(ctx, &current_ws);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_EQ(std::string(current_ws), ws_id_str);
+
+    vxcore_string_free(current_ws);
+    vxcore_string_free(ws_json);
+    vxcore_context_destroy(ctx);
+  }
+
+  cleanup_ws_temp_files();
+  std::cout << "  ✓ test_workspace_shutdown_saves_buffers passed" << std::endl;
+  return 0;
+}
+
+// Regression test: removing all buffers then shutting down loses buffers (expected).
+// This documents the vxcore behavior that caused the Qt-layer bug: if closeAllBuffers()
+// runs before saveSession()/vxcore_prepare_shutdown(), the persisted workspace has no buffers.
+int test_workspace_buffer_removal_then_shutdown() {
+  std::cout << "  Running test_workspace_buffer_removal_then_shutdown..." << std::endl;
+
+  vxcore_clear_test_directory();
+  cleanup_ws_temp_files();
+
+  std::string file_a = create_ws_temp_file("rem-a.md", "# Remove A");
+  std::string file_b = create_ws_temp_file("rem-b.md", "# Remove B");
+
+  std::string ws_id_str;
+
+  // Session 1: Create workspace with buffers and persist.
+  {
+    VxCoreContextHandle ctx = nullptr;
+    VxCoreError err = vxcore_context_create(nullptr, &ctx);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    char *buf_a_id = nullptr;
+    err = vxcore_buffer_open(ctx, nullptr, file_a.c_str(), &buf_a_id);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    char *buf_b_id = nullptr;
+    err = vxcore_buffer_open(ctx, nullptr, file_b.c_str(), &buf_b_id);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    char *ws_id = nullptr;
+    err = vxcore_workspace_create(ctx, "WS1", &ws_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    ws_id_str = ws_id;
+
+    err = vxcore_workspace_add_buffer(ctx, ws_id, buf_a_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    err = vxcore_workspace_add_buffer(ctx, ws_id, buf_b_id);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    err = vxcore_workspace_set_current(ctx, ws_id);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    err = vxcore_prepare_shutdown(ctx);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    vxcore_string_free(buf_a_id);
+    vxcore_string_free(buf_b_id);
+    vxcore_string_free(ws_id);
+    vxcore_context_destroy(ctx);
+  }
+
+  // Session 2: Reload, remove all buffers, then shutdown (the bug scenario).
+  {
+    VxCoreContextHandle ctx = nullptr;
+    VxCoreError err = vxcore_context_create(nullptr, &ctx);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    // Workspace should have 2 buffers from session 1.
+    char *ws_json = nullptr;
+    err = vxcore_workspace_get(ctx, ws_id_str.c_str(), &ws_json);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    auto parsed = nlohmann::json::parse(ws_json);
+    auto buffer_ids = parsed["bufferIds"];
+    ASSERT_EQ(buffer_ids.size(), 2u);
+    vxcore_string_free(ws_json);
+
+    // Remove all buffers from workspace (simulates closeAllBuffers).
+    for (const auto &id : buffer_ids) {
+      std::string buf_id = id.get<std::string>();
+      err = vxcore_workspace_remove_buffer(ctx, ws_id_str.c_str(), buf_id.c_str());
+      ASSERT_EQ(err, VXCORE_OK);
+    }
+
+    // Shutdown persists the now-empty workspace.
+    err = vxcore_prepare_shutdown(ctx);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    vxcore_context_destroy(ctx);
+  }
+
+  // Session 3: Reload and verify workspace has 0 buffers (expected vxcore behavior).
+  // This is the scenario that the Qt-layer fix prevents: the caller must save session
+  // BEFORE removing buffers from workspaces.
+  {
+    VxCoreContextHandle ctx = nullptr;
+    VxCoreError err = vxcore_context_create(nullptr, &ctx);
+    ASSERT_EQ(err, VXCORE_OK);
+
+    // Workspace should still exist but with no buffers.
+    char *ws_json = nullptr;
+    err = vxcore_workspace_get(ctx, ws_id_str.c_str(), &ws_json);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(ws_json);
+
+    auto parsed = nlohmann::json::parse(ws_json);
+    ASSERT_EQ(parsed["name"].get<std::string>(), std::string("WS1"));
+
+    auto buffer_ids = parsed["bufferIds"];
+    ASSERT_TRUE(buffer_ids.is_array());
+    ASSERT_EQ(buffer_ids.size(), 0u);
+
+    vxcore_string_free(ws_json);
+    vxcore_context_destroy(ctx);
+  }
+
+  cleanup_ws_temp_files();
+  std::cout << "  ✓ test_workspace_buffer_removal_then_shutdown passed" << std::endl;
+  return 0;
+}
+
 int main() {
   std::cout << "Running workspace tests..." << std::endl;
 
@@ -313,6 +546,8 @@ int main() {
   RUN_TEST(test_workspace_buffer_add_remove);
   RUN_TEST(test_workspace_current_buffer);
   RUN_TEST(test_workspace_persistence);
+  RUN_TEST(test_workspace_shutdown_saves_buffers);
+  RUN_TEST(test_workspace_buffer_removal_then_shutdown);
 
   std::cout << "All workspace tests passed!" << std::endl;
   return 0;
