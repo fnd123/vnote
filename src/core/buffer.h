@@ -67,6 +67,12 @@ class Buffer {
   // Private setter for ID (used by BufferManager when restoring from session)
   void SetId(const std::string &id) { id_ = id; }
 
+  // Private setter for file path (used by BufferManager on rename)
+  void SetFilePath(const std::string &file_path) { file_path_ = file_path; }
+
+  // Clear cached backup file path (used after path changes)
+  void ClearBackupPathCache() { backup_file_path_.clear(); }
+
   // Private default constructor for internal use
   Buffer();
 

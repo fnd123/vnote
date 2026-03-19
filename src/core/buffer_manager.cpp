@@ -11,6 +11,8 @@
 #include "utils/logger.h"
 #include "utils/utils.h"
 
+#include "standard_buffer_provider.h"
+
 namespace vxcore {
 
 BufferManager::BufferManager(ConfigManager *config_manager, NotebookManager *notebook_manager)
@@ -119,6 +121,58 @@ std::string BufferManager::FindBufferByPath(const std::string &notebook_id,
     }
   }
   return "";
+}
+
+void BufferManager::UpdatePathsAfterRename(const std::string &notebook_id,
+                                           const std::string &old_path,
+                                           const std::string &new_path, bool is_folder) {
+  bool updated = false;
+  std::string prefix = is_folder ? old_path + "/" : "";
+
+  for (auto &pair : buffers_) {
+    auto *buffer = pair.second.get();
+    if (buffer->GetNotebookId() != notebook_id) {
+      continue;
+    }
+
+    const std::string &buf_path = buffer->GetFilePath();
+    std::string updated_path;
+
+    if (!is_folder) {
+      // File rename: exact match only.
+      if (buf_path != old_path) {
+        continue;
+      }
+      updated_path = new_path;
+    } else {
+      // Folder rename: match prefix (files inside the renamed folder).
+      if (buf_path.size() > prefix.size() &&
+          buf_path.compare(0, prefix.size(), prefix) == 0) {
+        updated_path = new_path + "/" + buf_path.substr(prefix.size());
+      } else {
+        continue;
+      }
+    }
+
+    std::string old_buf_path = buf_path;
+    buffer->SetFilePath(updated_path);
+    buffer->ClearBackupPathCache();
+    buffer->DiscardBackup();
+
+    // Update provider's cached path if it's a StandardBufferProvider.
+    auto *provider = dynamic_cast<StandardBufferProvider *>(buffer->GetProvider());
+    if (provider) {
+      provider->SetFilePath(updated_path);
+    }
+
+    VXCORE_LOG_INFO("UpdatePathsAfterRename: buffer id=%s, old=%s, new=%s", buffer->GetId().c_str(),
+                    old_buf_path.c_str(), updated_path.c_str());
+    updated = true;
+  }
+
+  if (updated) {
+    SaveBuffers();
+  }
 }
 
 std::string BufferManager::OpenBuffer(const std::string &notebook_id,

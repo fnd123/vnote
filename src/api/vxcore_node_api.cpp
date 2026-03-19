@@ -1,4 +1,5 @@
 #include "api/api_utils.h"
+#include "core/buffer_manager.h"
 #include "core/context.h"
 #include "core/folder_manager.h"
 #include "core/notebook_manager.h"
@@ -161,10 +162,33 @@ VXCORE_API VxCoreError vxcore_node_rename(VxCoreContextHandle context, const cha
 
     // Rename based on type
     if (node_type == vxcore::NodeType::File) {
-      return folder_manager->RenameFile(node_path, new_name);
+      err = folder_manager->RenameFile(node_path, new_name);
     } else {
-      return folder_manager->RenameFolder(node_path, new_name);
+      err = folder_manager->RenameFolder(node_path, new_name);
     }
+
+    if (err != VXCORE_OK) {
+      return err;
+    }
+
+    // Update open buffer paths to reflect the rename.
+    if (ctx->buffer_manager) {
+      bool is_folder = (node_type == vxcore::NodeType::Folder);
+      std::string old_path = node_path;
+
+      // Derive the new path: replace the last component with new_name.
+      std::string new_path;
+      size_t last_slash = old_path.rfind('/');
+      if (last_slash != std::string::npos) {
+        new_path = old_path.substr(0, last_slash + 1) + new_name;
+      } else {
+        new_path = new_name;
+      }
+
+      ctx->buffer_manager->UpdatePathsAfterRename(notebook_id, old_path, new_path, is_folder);
+    }
+
+    return VXCORE_OK;
   } catch (const std::exception &e) {
     ctx->last_error = std::string("Exception: ") + e.what();
     return VXCORE_ERR_UNKNOWN;

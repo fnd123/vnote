@@ -1969,6 +1969,345 @@ int test_buffer_backup_cleanup_on_close() {
   return 0;
 }
 
+int test_buffer_rename_file_updates_path() {
+  std::cout << "  Running test_buffer_rename_file_updates_path..." << std::endl;
+  cleanup_test_dir(get_test_path("test_buffer_rename_file_updates_path"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_buffer_rename_file_updates_path").c_str(),
+                               "{\"name\":\"Rename Test\"}", VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create a file and open its buffer
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "test.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *buffer_id = nullptr;
+  err = vxcore_buffer_open(ctx, notebook_id, "test.md", &buffer_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(buffer_id);
+
+  // Verify initial filePath is "test.md"
+  char *buffer_json = nullptr;
+  err = vxcore_buffer_get(ctx, buffer_id, &buffer_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  nlohmann::json buf_data = nlohmann::json::parse(buffer_json);
+  ASSERT_EQ(buf_data["filePath"].get<std::string>(), std::string("test.md"));
+  vxcore_string_free(buffer_json);
+
+  // Save the buffer ID for later comparison
+  std::string original_buffer_id(buffer_id);
+
+  // Rename the file
+  err = vxcore_node_rename(ctx, notebook_id, "test.md", "renamed.md");
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Verify buffer's filePath is now "renamed.md"
+  buffer_json = nullptr;
+  err = vxcore_buffer_get(ctx, buffer_id, &buffer_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  buf_data = nlohmann::json::parse(buffer_json);
+  ASSERT_EQ(buf_data["filePath"].get<std::string>(), std::string("renamed.md"));
+  vxcore_string_free(buffer_json);
+
+  // Verify buffer ID is unchanged
+  ASSERT_EQ(buf_data["id"].get<std::string>(), original_buffer_id);
+
+  vxcore_string_free(buffer_id);
+  vxcore_string_free(file_id);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_buffer_rename_file_updates_path"));
+  std::cout << "  ✓ test_buffer_rename_file_updates_path passed" << std::endl;
+  return 0;
+}
+
+int test_buffer_rename_folder_updates_paths() {
+  std::cout << "  Running test_buffer_rename_folder_updates_paths..." << std::endl;
+  cleanup_test_dir(get_test_path("test_buffer_rename_folder_updates_paths"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(
+      ctx, get_test_path("test_buffer_rename_folder_updates_paths").c_str(),
+      "{\"name\":\"Rename Folder Test\"}", VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create folder "docs" and two files inside it
+  char *folder_id = nullptr;
+  err = vxcore_folder_create(ctx, notebook_id, ".", "docs", &folder_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id1 = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, "docs", "note.md", &file_id1);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id2 = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, "docs", "readme.md", &file_id2);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Open buffers for both files
+  char *buffer_id1 = nullptr;
+  err = vxcore_buffer_open(ctx, notebook_id, "docs/note.md", &buffer_id1);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *buffer_id2 = nullptr;
+  err = vxcore_buffer_open(ctx, notebook_id, "docs/readme.md", &buffer_id2);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Save buffer IDs for later comparison
+  std::string original_buffer_id1(buffer_id1);
+  std::string original_buffer_id2(buffer_id2);
+
+  // Rename folder "docs" to "documentation"
+  err = vxcore_node_rename(ctx, notebook_id, "docs", "documentation");
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Verify first buffer's filePath is "documentation/note.md"
+  char *buffer_json = nullptr;
+  err = vxcore_buffer_get(ctx, buffer_id1, &buffer_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  nlohmann::json buf_data1 = nlohmann::json::parse(buffer_json);
+  ASSERT_EQ(buf_data1["filePath"].get<std::string>(), std::string("documentation/note.md"));
+  vxcore_string_free(buffer_json);
+
+  // Verify second buffer's filePath is "documentation/readme.md"
+  buffer_json = nullptr;
+  err = vxcore_buffer_get(ctx, buffer_id2, &buffer_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  nlohmann::json buf_data2 = nlohmann::json::parse(buffer_json);
+  ASSERT_EQ(buf_data2["filePath"].get<std::string>(), std::string("documentation/readme.md"));
+  vxcore_string_free(buffer_json);
+
+  // Verify buffer IDs are unchanged
+  ASSERT_EQ(buf_data1["id"].get<std::string>(), original_buffer_id1);
+  ASSERT_EQ(buf_data2["id"].get<std::string>(), original_buffer_id2);
+
+  // Verify provider is functional after rename: insert asset into buffer1
+  // This proves the StandardBufferProvider's cached file_path_ was updated
+  const uint8_t asset_data[] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+  char *relative_path = nullptr;
+  err = vxcore_buffer_insert_asset_raw(ctx, buffer_id1, "post_rename.png", asset_data,
+                                       sizeof(asset_data), &relative_path);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(relative_path);
+
+  // Verify asset was created under the renamed folder path
+  std::string rel_path(relative_path);
+  ASSERT_TRUE(rel_path.find("vx_assets") != std::string::npos);
+  ASSERT_TRUE(rel_path.find("post_rename.png") != std::string::npos);
+
+  // Verify the file actually exists on disk
+  std::string notebook_root = get_test_path("test_buffer_rename_folder_updates_paths");
+  std::string asset_abs_path = notebook_root + "/" + rel_path;
+  ASSERT_TRUE(path_exists(asset_abs_path));
+
+  vxcore_string_free(relative_path);
+  vxcore_string_free(buffer_id1);
+  vxcore_string_free(buffer_id2);
+  vxcore_string_free(file_id1);
+  vxcore_string_free(file_id2);
+  vxcore_string_free(folder_id);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_buffer_rename_folder_updates_paths"));
+  std::cout << "  ✓ test_buffer_rename_folder_updates_paths passed" << std::endl;
+  return 0;
+}
+
+int test_buffer_rename_no_affect_other_buffers() {
+  std::cout << "  Running test_buffer_rename_no_affect_other_buffers..." << std::endl;
+  cleanup_test_dir(get_test_path("test_buffer_rename_no_affect_other"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_buffer_rename_no_affect_other").c_str(),
+                               "{\"name\":\"Rename Isolation Test\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create two files
+  char *file_id_a = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "a.md", &file_id_a);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id_b = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "b.md", &file_id_b);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Open buffers for both
+  char *buffer_id_a = nullptr;
+  err = vxcore_buffer_open(ctx, notebook_id, "a.md", &buffer_id_a);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *buffer_id_b = nullptr;
+  err = vxcore_buffer_open(ctx, notebook_id, "b.md", &buffer_id_b);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Rename "a.md" to "c.md"
+  err = vxcore_node_rename(ctx, notebook_id, "a.md", "c.md");
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Verify buffer A now has filePath "c.md"
+  char *buffer_json = nullptr;
+  err = vxcore_buffer_get(ctx, buffer_id_a, &buffer_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  nlohmann::json buf_data_a = nlohmann::json::parse(buffer_json);
+  ASSERT_EQ(buf_data_a["filePath"].get<std::string>(), std::string("c.md"));
+  vxcore_string_free(buffer_json);
+
+  // Verify buffer B still has filePath "b.md" (unaffected)
+  buffer_json = nullptr;
+  err = vxcore_buffer_get(ctx, buffer_id_b, &buffer_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  nlohmann::json buf_data_b = nlohmann::json::parse(buffer_json);
+  ASSERT_EQ(buf_data_b["filePath"].get<std::string>(), std::string("b.md"));
+  vxcore_string_free(buffer_json);
+
+  vxcore_string_free(buffer_id_a);
+  vxcore_string_free(buffer_id_b);
+  vxcore_string_free(file_id_a);
+  vxcore_string_free(file_id_b);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_buffer_rename_no_affect_other"));
+  std::cout << "  ✓ test_buffer_rename_no_affect_other_buffers passed" << std::endl;
+  return 0;
+}
+
+int test_buffer_rename_provider_functional() {
+  std::cout << "  Running test_buffer_rename_provider_functional..." << std::endl;
+  cleanup_test_dir(get_test_path("test_buffer_rename_provider"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_buffer_rename_provider").c_str(),
+                               "{\"name\":\"Provider Rename Test\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create folder "notes" and a file inside it
+  char *folder_id = nullptr;
+  err = vxcore_folder_create(ctx, notebook_id, ".", "notes", &folder_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, "notes", "test.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Open buffer for "notes/test.md"
+  char *buffer_id = nullptr;
+  err = vxcore_buffer_open(ctx, notebook_id, "notes/test.md", &buffer_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(buffer_id);
+
+  // Verify initial filePath
+  char *buffer_json = nullptr;
+  err = vxcore_buffer_get(ctx, buffer_id, &buffer_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  nlohmann::json buf_data = nlohmann::json::parse(buffer_json);
+  ASSERT_EQ(buf_data["filePath"].get<std::string>(), std::string("notes/test.md"));
+  vxcore_string_free(buffer_json);
+
+  // Step 3: Insert asset BEFORE rename — verify it works and path relates to "notes/test.md"
+  const uint8_t image_data1[] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+  char *pre_rename_asset_path = nullptr;
+  err = vxcore_buffer_insert_asset_raw(ctx, buffer_id, "before_rename.png", image_data1,
+                                       sizeof(image_data1), &pre_rename_asset_path);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(pre_rename_asset_path);
+
+  // Verify pre-rename asset path format
+  std::string pre_rel_path(pre_rename_asset_path);
+  ASSERT_TRUE(pre_rel_path.find("vx_assets") != std::string::npos);
+  ASSERT_TRUE(pre_rel_path.find("before_rename.png") != std::string::npos);
+
+  // Verify pre-rename asset exists on disk
+  std::string notebook_root = get_test_path("test_buffer_rename_provider");
+  std::string pre_asset_abs = notebook_root + "/" + pre_rel_path;
+  ASSERT_TRUE(path_exists(pre_asset_abs));
+
+  // Get assets folder BEFORE rename for comparison
+  char *pre_assets_folder = nullptr;
+  err = vxcore_buffer_get_assets_folder(ctx, buffer_id, &pre_assets_folder);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(pre_assets_folder);
+  std::string pre_assets_folder_str(pre_assets_folder);
+  vxcore_string_free(pre_assets_folder);
+
+  // Step 4: Rename the file from "notes/test.md" to "renamed.md"
+  err = vxcore_node_rename(ctx, notebook_id, "notes/test.md", "renamed.md");
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Step 5: Verify buffer filePath updated
+  buffer_json = nullptr;
+  err = vxcore_buffer_get(ctx, buffer_id, &buffer_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  buf_data = nlohmann::json::parse(buffer_json);
+  ASSERT_EQ(buf_data["filePath"].get<std::string>(), std::string("notes/renamed.md"));
+  vxcore_string_free(buffer_json);
+
+  // Step 6: Insert asset AFTER rename — proves provider uses updated path
+  const uint8_t image_data2[] = {0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46};
+  char *post_rename_asset_path = nullptr;
+  err = vxcore_buffer_insert_asset_raw(ctx, buffer_id, "after_rename.jpg", image_data2,
+                                       sizeof(image_data2), &post_rename_asset_path);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(post_rename_asset_path);
+
+  // Verify post-rename asset path format
+  std::string post_rel_path(post_rename_asset_path);
+  ASSERT_TRUE(post_rel_path.find("vx_assets") != std::string::npos);
+  ASSERT_TRUE(post_rel_path.find("after_rename.jpg") != std::string::npos);
+
+  // Verify post-rename asset exists on disk
+  std::string post_asset_abs = notebook_root + "/" + post_rel_path;
+  ASSERT_TRUE(path_exists(post_asset_abs));
+
+  // Step 7: Get assets folder AFTER rename — verify it resolves to new location
+  char *post_assets_folder = nullptr;
+  err = vxcore_buffer_get_assets_folder(ctx, buffer_id, &post_assets_folder);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(post_assets_folder);
+  std::string post_assets_folder_str(post_assets_folder);
+
+  // The assets folder should reference the renamed file's location
+  ASSERT_TRUE(path_exists(post_assets_folder_str));
+  ASSERT_TRUE(post_assets_folder_str.find("vx_assets") != std::string::npos);
+
+  // Assets folder should differ from pre-rename (path changed from notes/test.md to
+  // notes/renamed.md)
+  ASSERT_NE(pre_assets_folder_str, post_assets_folder_str);
+
+  vxcore_string_free(post_assets_folder);
+
+  // Step 8: Cleanup
+  vxcore_string_free(pre_rename_asset_path);
+  vxcore_string_free(post_rename_asset_path);
+  vxcore_string_free(buffer_id);
+  vxcore_string_free(file_id);
+  vxcore_string_free(folder_id);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_buffer_rename_provider"));
+  std::cout << "  ✓ test_buffer_rename_provider_functional passed" << std::endl;
+  return 0;
+}
+
 int main() {
   std::cout << "Running buffer tests..." << std::endl;
 
@@ -2021,6 +2360,12 @@ int main() {
   // External File Asset Tests
   RUN_TEST(test_buffer_external_asset);
   RUN_TEST(test_buffer_asset_unique_name);
+
+  // Buffer Path Update on Rename Tests
+  RUN_TEST(test_buffer_rename_file_updates_path);
+  RUN_TEST(test_buffer_rename_folder_updates_paths);
+  RUN_TEST(test_buffer_rename_no_affect_other_buffers);
+  RUN_TEST(test_buffer_rename_provider_functional);
 
   std::cout << "All buffer tests passed!" << std::endl;
   return 0;

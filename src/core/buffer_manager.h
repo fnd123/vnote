@@ -38,6 +38,13 @@ class BufferManager {
   // Find buffer by path for de-duplication (returns buffer ID or empty string)
   std::string FindBufferByPath(const std::string &notebook_id, const std::string &file_path);
 
+  // Update buffer paths after a node rename (called internally by C API).
+  // For file renames: updates the single buffer matching (notebook_id, old_path).
+  // For folder renames: updates all buffers whose paths are under the renamed folder.
+  // Discards stale backups and persists session after updates.
+  void UpdatePathsAfterRename(const std::string &notebook_id, const std::string &old_path,
+                              const std::string &new_path, bool is_folder);
+
   // Save buffer to disk
   VxCoreError SaveBuffer(const std::string &id);
 

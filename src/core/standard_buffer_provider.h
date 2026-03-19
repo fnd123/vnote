@@ -69,6 +69,10 @@ class StandardBufferProvider : public IBufferProvider {
   Notebook *notebook_;     // Not owned
   std::string file_path_;  // Relative path within notebook
   std::string file_id_;    // Cached file UUID
+
+  // Allow BufferManager to update cached path after rename.
+  friend class BufferManager;
+  void SetFilePath(const std::string &path) { file_path_ = path; }
 };
 
 }  // namespace vxcore
