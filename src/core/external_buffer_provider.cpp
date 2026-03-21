@@ -184,6 +184,11 @@ VxCoreError ExternalBufferProvider::GetAssetAbsolutePath(const std::string &rela
   return VXCORE_OK;
 }
 
+VxCoreError ExternalBufferProvider::GetResourceBasePath(std::string &out_path) {
+  out_path = CleanPath(file_dir_);
+  return VXCORE_OK;
+}
+
 // Attachment operations for external files (filesystem only, no metadata)
 
 VxCoreError ExternalBufferProvider::InsertAttachment(const std::string &source_path,

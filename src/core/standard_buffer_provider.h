@@ -40,6 +40,9 @@ class StandardBufferProvider : public IBufferProvider {
   VxCoreError GetAssetAbsolutePath(const std::string &relative_path,
                                    std::string &out_abs_path) override;
 
+  // Resource resolution
+  VxCoreError GetResourceBasePath(std::string &out_path) override;
+
   // Attachment operations (filesystem + metadata)
   VxCoreError InsertAttachment(const std::string &source_path, std::string &out_filename) override;
 

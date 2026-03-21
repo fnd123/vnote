@@ -69,6 +69,13 @@ class IBufferProvider {
   virtual VxCoreError GetAssetAbsolutePath(const std::string &relative_path,
                                            std::string &out_abs_path) = 0;
 
+  // ============ Resource Resolution ============
+  // Get the base path for resolving relative resource URLs in the file's content.
+  // For standard files: parent directory of the file (e.g., notebook_root/folder/)
+  // For external files: parent directory of the file
+  // For TextBundle (future): the bundle directory itself
+  virtual VxCoreError GetResourceBasePath(std::string &out_path) = 0;
+
   // ============ Attachment Operations (Filesystem + Metadata) ============
   // These methods operate on both filesystem and attachment metadata.
   // For ExternalBufferProvider, metadata operations return VXCORE_ERR_UNSUPPORTED.

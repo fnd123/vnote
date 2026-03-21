@@ -526,6 +526,15 @@ VXCORE_API VxCoreError vxcore_buffer_delete_asset(VxCoreContextHandle context,
 VXCORE_API VxCoreError vxcore_buffer_get_assets_folder(VxCoreContextHandle context,
                                                        const char *buffer_id, char **out_path);
 
+// Get the resource base path for a buffer.
+// This is the base path for resolving relative resource URLs (images, etc.) in the file's content.
+// For regular files, this is the parent directory of the file.
+// out_path: Receives absolute filesystem path.
+//           Caller must free with vxcore_string_free.
+VXCORE_API VxCoreError vxcore_buffer_get_resource_base_path(VxCoreContextHandle context,
+                                                             const char *buffer_id,
+                                                             char **out_path);
+
 // ============ Buffer Attachment Operations (Filesystem + Metadata) ============
 // Attachment operations modify both filesystem and attachment metadata.
 // Use these for files that need to be tracked (downloadable attachments).

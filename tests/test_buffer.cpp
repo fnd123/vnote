@@ -2307,6 +2307,140 @@ int test_buffer_rename_provider_functional() {
   return 0;
 }
 
+// ============ Buffer Resource Base Path Tests ============
+
+int test_buffer_get_resource_base_path() {
+  std::cout << "  Running test_buffer_get_resource_base_path..." << std::endl;
+  cleanup_test_dir(get_test_path("test_buffer_resource_base"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_buffer_resource_base").c_str(),
+                               "{\"name\":\"Resource Base Test\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create a test file at root level
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "test.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Open buffer
+  char *buffer_id = nullptr;
+  err = vxcore_buffer_open(ctx, notebook_id, "test.md", &buffer_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Get resource base path
+  char *base_path = nullptr;
+  err = vxcore_buffer_get_resource_base_path(ctx, buffer_id, &base_path);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(base_path);
+
+  // For a root-level file, the resource base path should be the notebook root
+  std::string base_str = normalize_path(base_path);
+  std::string notebook_root = normalize_path(get_test_path("test_buffer_resource_base"));
+  ASSERT_EQ(base_str, notebook_root);
+
+  vxcore_string_free(base_path);
+  vxcore_string_free(buffer_id);
+  vxcore_string_free(file_id);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_buffer_resource_base"));
+  std::cout << "  ✓ test_buffer_get_resource_base_path passed" << std::endl;
+  return 0;
+}
+
+int test_buffer_get_resource_base_path_subfolder() {
+  std::cout << "  Running test_buffer_get_resource_base_path_subfolder..." << std::endl;
+  cleanup_test_dir(get_test_path("test_buffer_resource_sub"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_buffer_resource_sub").c_str(),
+                               "{\"name\":\"Resource Sub Test\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create a subfolder and file
+  char *folder_id = nullptr;
+  err = vxcore_folder_create(ctx, notebook_id, ".", "docs", &folder_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, "docs", "note.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Open buffer
+  char *buffer_id = nullptr;
+  err = vxcore_buffer_open(ctx, notebook_id, "docs/note.md", &buffer_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Get resource base path
+  char *base_path = nullptr;
+  err = vxcore_buffer_get_resource_base_path(ctx, buffer_id, &base_path);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(base_path);
+
+  // For a file in docs/, the resource base path should be notebook_root/docs
+  std::string base_str = normalize_path(base_path);
+  std::string expected = normalize_path(get_test_path("test_buffer_resource_sub") + "/docs");
+  ASSERT_EQ(base_str, expected);
+
+  vxcore_string_free(base_path);
+  vxcore_string_free(buffer_id);
+  vxcore_string_free(file_id);
+  vxcore_string_free(folder_id);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_buffer_resource_sub"));
+  std::cout << "  ✓ test_buffer_get_resource_base_path_subfolder passed" << std::endl;
+  return 0;
+}
+
+int test_buffer_get_resource_base_path_external() {
+  std::cout << "  Running test_buffer_get_resource_base_path_external..." << std::endl;
+  cleanup_test_dir(get_test_path("test_buffer_resource_ext"));
+  create_directory(get_test_path("test_buffer_resource_ext"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create an external file
+  std::string ext_file_path = get_test_path("test_buffer_resource_ext") + "/notes.md";
+  write_file(ext_file_path, "# External Notes\n");
+
+  // Open buffer for external file (notebook_id = NULL)
+  char *buffer_id = nullptr;
+  err = vxcore_buffer_open(ctx, nullptr, ext_file_path.c_str(), &buffer_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Get resource base path
+  char *base_path = nullptr;
+  err = vxcore_buffer_get_resource_base_path(ctx, buffer_id, &base_path);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(base_path);
+
+  // For an external file, the resource base path should be the file's parent directory
+  std::string base_str = normalize_path(base_path);
+  std::string expected = normalize_path(get_test_path("test_buffer_resource_ext"));
+  ASSERT_EQ(base_str, expected);
+
+  vxcore_string_free(base_path);
+  vxcore_string_free(buffer_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_buffer_resource_ext"));
+  std::cout << "  ✓ test_buffer_get_resource_base_path_external passed" << std::endl;
+  return 0;
+}
+
 int main() {
   std::cout << "Running buffer tests..." << std::endl;
 
@@ -2365,6 +2499,11 @@ int main() {
   RUN_TEST(test_buffer_rename_folder_updates_paths);
   RUN_TEST(test_buffer_rename_no_affect_other_buffers);
   RUN_TEST(test_buffer_rename_provider_functional);
+
+  // Buffer Resource Base Path Tests
+  RUN_TEST(test_buffer_get_resource_base_path);
+  RUN_TEST(test_buffer_get_resource_base_path_subfolder);
+  RUN_TEST(test_buffer_get_resource_base_path_external);
 
   std::cout << "All buffer tests passed!" << std::endl;
   return 0;

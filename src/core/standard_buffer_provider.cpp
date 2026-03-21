@@ -386,6 +386,13 @@ VxCoreError StandardBufferProvider::GetAssetAbsolutePath(const std::string &rela
   return VXCORE_OK;
 }
 
+VxCoreError StandardBufferProvider::GetResourceBasePath(std::string &out_path) {
+  std::string abs_path = CleanPath(notebook_->GetRootFolder() + "/" + file_path_);
+  std::filesystem::path p(abs_path);
+  out_path = CleanFsPath(p.parent_path());
+  return VXCORE_OK;
+}
+
 VxCoreError StandardBufferProvider::EnsureAssetsFolderExists() {
   std::string assets_folder = GetAssetsFolderPath();
   if (assets_folder.empty()) {

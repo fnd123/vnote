@@ -630,6 +630,40 @@ VXCORE_API VxCoreError vxcore_buffer_get_assets_folder(VxCoreContextHandle conte
   }
 }
 
+VXCORE_API VxCoreError vxcore_buffer_get_resource_base_path(VxCoreContextHandle context,
+                                                             const char *buffer_id,
+                                                             char **out_path) {
+  if (!context || !buffer_id || !out_path) {
+    return VXCORE_ERR_NULL_POINTER;
+  }
+
+  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
+  if (!ctx->buffer_manager) {
+    return VXCORE_ERR_NOT_INITIALIZED;
+  }
+
+  try {
+    auto *provider = ctx->buffer_manager->GetProvider(buffer_id);
+    if (!provider) {
+      ctx->last_error = "Buffer provider not available (unsupported notebook type)";
+      return VXCORE_ERR_UNSUPPORTED;
+    }
+
+    std::string path;
+    VxCoreError err = provider->GetResourceBasePath(path);
+    if (err != VXCORE_OK) {
+      ctx->last_error = "Failed to get resource base path";
+      return err;
+    }
+
+    *out_path = vxcore_strdup(path.c_str());
+    return VXCORE_OK;
+  } catch (const std::exception &e) {
+    ctx->last_error = std::string("Exception: ") + e.what();
+    return VXCORE_ERR_UNKNOWN;
+  }
+}
+
 // ============ Buffer Attachment Operations (Filesystem + Metadata) ============
 
 VXCORE_API VxCoreError vxcore_buffer_insert_attachment(VxCoreContextHandle context,
