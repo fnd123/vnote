@@ -12,7 +12,7 @@ namespace vxcore {
 struct SearchConfig {
   std::vector<std::string> backends;
 
-  SearchConfig() : backends({"rg", "simple"}) {}
+  SearchConfig() : backends({"simple", "rg"}) {}
 
   static SearchConfig FromJson(const nlohmann::json &json);
   nlohmann::json ToJson() const;
