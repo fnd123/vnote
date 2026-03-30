@@ -1,6 +1,7 @@
 #ifndef VXCORE_FOLDER_MANAGER_H
 #define VXCORE_FOLDER_MANAGER_H
 
+#include <filesystem>
 #include <functional>
 #include <string>
 
@@ -51,6 +52,10 @@ class FolderManager {
                                  std::string &out_file_id) = 0;
 
   virtual VxCoreError DeleteFile(const std::string &file_path) = 0;
+
+  // Move a node to recycle bin when supported by notebook type.
+  // Default implementation falls back to permanent deletion.
+  virtual VxCoreError MoveToRecycleBin(const std::filesystem::path &source_path);
 
   virtual VxCoreError UpdateFileMetadata(const std::string &file_path,
                                          const std::string &metadata_json) = 0;

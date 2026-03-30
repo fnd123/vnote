@@ -1571,6 +1571,15 @@ int test_buffer_delete_attachment() {
   err = vxcore_buffer_insert_attachment(ctx, buffer_id, source_path.c_str(), &filename);
   ASSERT_EQ(err, VXCORE_OK);
 
+  // Resolve attachment absolute path in assets folder
+  char *attachments_folder = nullptr;
+  err = vxcore_buffer_get_attachments_folder(ctx, buffer_id, &attachments_folder);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(attachments_folder);
+  std::string attachment_abs_path = std::string(attachments_folder) + "/" + filename;
+  ASSERT_TRUE(path_exists(attachment_abs_path));
+  vxcore_string_free(attachments_folder);
+
   // Verify in list
   char *attachments_json = nullptr;
   err = vxcore_buffer_list_attachments(ctx, buffer_id, &attachments_json);
@@ -1583,11 +1592,22 @@ int test_buffer_delete_attachment() {
   err = vxcore_buffer_delete_attachment(ctx, buffer_id, filename);
   ASSERT_EQ(err, VXCORE_OK);
 
+  // Verify removed from original assets folder
+  ASSERT_FALSE(path_exists(attachment_abs_path));
+
+  // Verify moved to recycle bin for bundled notebook
+  std::string recycle_bin_path =
+      get_test_path("test_buffer_delete_attachment") + "/vx_notebook/recycle_bin/" + filename;
+  ASSERT_TRUE(path_exists(recycle_bin_path));
+
   // Verify removed from list
   err = vxcore_buffer_list_attachments(ctx, buffer_id, &attachments_json);
   ASSERT_EQ(err, VXCORE_OK);
   json = nlohmann::json::parse(attachments_json);
   ASSERT_EQ(json.size(), 0u);
+  for (const auto &item : json) {
+    ASSERT_NE(item.get<std::string>(), std::string(filename));
+  }
   vxcore_string_free(attachments_json);
 
   vxcore_string_free(filename);

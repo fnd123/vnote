@@ -4,6 +4,24 @@
 
 namespace vxcore {
 
+VxCoreError FolderManager::MoveToRecycleBin(const std::filesystem::path &source_path) {
+  try {
+    if (!std::filesystem::exists(source_path)) {
+      return VXCORE_ERR_NOT_FOUND;
+    }
+
+    if (std::filesystem::is_directory(source_path)) {
+      std::filesystem::remove_all(source_path);
+    } else {
+      std::filesystem::remove(source_path);
+    }
+
+    return VXCORE_OK;
+  } catch (const std::exception &) {
+    return VXCORE_ERR_IO;
+  }
+}
+
 VxCoreError FolderManager::CreateFolderPath(const std::string &folder_path,
                                             std::string &out_folder_id) {
   if (folder_path.empty()) {

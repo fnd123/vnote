@@ -246,8 +246,16 @@ VxCoreError StandardBufferProvider::DeleteAttachment(const std::string &filename
     VXCORE_LOG_WARN("Failed to remove attachment metadata: error %d", err);
   }
 
-  // Delete the file
-  err = DeleteAsset(relative_path);
+  // Delete from filesystem: prefer recycle bin, fallback to permanent delete.
+  VxCoreError move_err = folder_manager->MoveToRecycleBin(std::filesystem::path(abs_path));
+  if (move_err != VXCORE_OK) {
+    VXCORE_LOG_WARN("Failed to move attachment to recycle bin, fallback to permanent delete: %s",
+                    abs_path.c_str());
+    err = DeleteAsset(relative_path);
+  } else {
+    err = VXCORE_OK;
+  }
+
   return err;
 }
 
