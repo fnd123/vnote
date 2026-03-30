@@ -5,6 +5,7 @@
 #include "core/config_manager.h"
 #include "core/context.h"
 #include "core/notebook_manager.h"
+#include "core/snippet_manager.h"
 #include "core/template_manager.h"
 #include "core/workspace_manager.h"
 #include "platform/path_provider.h"
@@ -116,6 +117,7 @@ VXCORE_API VxCoreError vxcore_context_create(const char *config_json,
     ctx->workspace_manager = std::make_unique<vxcore::WorkspaceManager>(ctx->config_manager.get(),
                                                                         ctx->buffer_manager.get());
     ctx->template_manager = std::make_unique<vxcore::TemplateManager>(ctx->config_manager.get());
+    ctx->snippet_manager = std::make_unique<vxcore::SnippetManager>(ctx->config_manager.get());
 
     *out_context = reinterpret_cast<VxCoreContextHandle>(ctx);
     return VXCORE_OK;
@@ -293,7 +295,7 @@ VXCORE_API VxCoreError vxcore_context_get_config(VxCoreContextHandle context, ch
 }
 
 VXCORE_API VxCoreError vxcore_context_update_config(VxCoreContextHandle context,
-                                                     const char *config_json) {
+                                                    const char *config_json) {
   if (!context || !config_json) {
     return VXCORE_ERR_NULL_POINTER;
   }

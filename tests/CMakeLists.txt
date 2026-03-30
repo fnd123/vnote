@@ -17,6 +17,18 @@ add_vxcore_test(test_buffer)
 add_vxcore_test(test_session_persistence)
 add_vxcore_test(test_template)
 
+# test_snippet: Tests SnippetManager C++ API directly (no C API yet).
+# Compiles snippet_manager and dependencies directly since C++ symbols aren't DLL-exported.
+add_executable(test_snippet test_snippet.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/snippet_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/file_utils.cpp)
+target_link_libraries(test_snippet PRIVATE vxcore nlohmann_json)
+target_include_directories(test_snippet PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/third_party)
+if(MSVC)
+    target_compile_definitions(test_snippet PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+add_test(NAME test_snippet COMMAND test_snippet)
+
 add_executable(test_file_utils test_file_utils.cpp ${CMAKE_SOURCE_DIR}/src/utils/file_utils.cpp)
 target_include_directories(test_file_utils PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/third_party)
 add_test(NAME test_file_utils COMMAND test_file_utils)

@@ -673,6 +673,65 @@ VXCORE_API VxCoreError vxcore_template_delete(VxCoreContextHandle context, const
 VXCORE_API VxCoreError vxcore_template_rename(VxCoreContextHandle context, const char *old_name,
                                               const char *new_name);
 
+/* ============ Snippet Operations ============ */
+
+// Get the absolute path to the snippets folder.
+// Creates the folder if it doesn't exist.
+// out_path: Caller must free with vxcore_string_free.
+VXCORE_API VxCoreError vxcore_snippet_get_folder_path(VxCoreContextHandle context, char **out_path);
+
+// List all snippets (built-in + user) as a JSON array of summary objects.
+// Each element: {"name":"...", "type":"text"|"dynamic", "description":"...",
+// "isBuiltin":true|false} out_json: Caller must free with vxcore_string_free.
+VXCORE_API VxCoreError vxcore_snippet_list(VxCoreContextHandle context, char **out_json);
+
+// Get a single snippet by name as a JSON object with all fields.
+// Fields: name, type, description, content, cursorMark, selectionMark, indentAsFirstLine, isBuiltin
+// name: Snippet name (no extension, no path separators).
+// out_json: Caller must free with vxcore_string_free.
+// Returns VXCORE_ERR_NOT_FOUND if snippet doesn't exist.
+VXCORE_API VxCoreError vxcore_snippet_get(VxCoreContextHandle context, const char *name,
+                                          char **out_json);
+
+// Create a new user snippet.
+// name: Snippet name (no extension, no path separators, no '%' character).
+// content_json: JSON object with snippet fields (type, description, content, cursorMark,
+//               selectionMark, indentAsFirstLine).
+// Returns VXCORE_ERR_ALREADY_EXISTS if name collides with built-in or existing user snippet.
+// Returns VXCORE_ERR_INVALID_PARAM if name is invalid.
+VXCORE_API VxCoreError vxcore_snippet_create(VxCoreContextHandle context, const char *name,
+                                             const char *content_json);
+
+// Delete a user snippet by name.
+// Returns VXCORE_ERR_NOT_FOUND if snippet doesn't exist.
+// Returns VXCORE_ERR_INVALID_PARAM if attempting to delete a built-in snippet.
+VXCORE_API VxCoreError vxcore_snippet_delete(VxCoreContextHandle context, const char *name);
+
+// Rename a user snippet.
+// Returns VXCORE_ERR_NOT_FOUND if old_name doesn't exist.
+// Returns VXCORE_ERR_ALREADY_EXISTS if new_name already exists.
+// Returns VXCORE_ERR_INVALID_PARAM if renaming a built-in or new_name is invalid.
+VXCORE_API VxCoreError vxcore_snippet_rename(VxCoreContextHandle context, const char *old_name,
+                                             const char *new_name);
+
+// Update a user snippet's content.
+// name: Existing user snippet name.
+// content_json: JSON object with updated snippet fields.
+// Returns VXCORE_ERR_NOT_FOUND if snippet doesn't exist.
+// Returns VXCORE_ERR_INVALID_PARAM if attempting to update a built-in snippet.
+VXCORE_API VxCoreError vxcore_snippet_update(VxCoreContextHandle context, const char *name,
+                                             const char *content_json);
+
+// Apply a snippet: expand content, process cursor/selection marks, expand %name% symbols.
+// name: Snippet name to apply.
+// selected_text: Currently selected text (replaces selection marks). May be NULL.
+// indentation: Indentation string to prepend to lines 2+. May be NULL.
+// overrides_json: JSON object {"key":"value",...} for snippet overrides. May be NULL or "{}".
+// out_json: Result JSON: {"text":"...","cursorOffset":N}. Caller must free with vxcore_string_free.
+VXCORE_API VxCoreError vxcore_snippet_apply(VxCoreContextHandle context, const char *name,
+                                            const char *selected_text, const char *indentation,
+                                            const char *overrides_json, char **out_json);
+
 VXCORE_API void vxcore_string_free(char *str);
 
 #ifdef __cplusplus
