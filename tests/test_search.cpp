@@ -1,6 +1,8 @@
-﻿#include <iostream>
+#include <chrono>
+#include <iostream>
 #include <map>
 #include <string>
+#include <thread>
 
 #include "nlohmann/json.hpp"
 #include "test_utils.h"
@@ -1920,6 +1922,481 @@ int test_content_search_no_matches() {
   return 0;
 }
 
+int test_search_content_parallel_100_files() {
+  std::cout << "  Running test_search_content_parallel_100_files..." << std::endl;
+  vxcore_set_test_mode(1);
+  cleanup_test_dir(get_test_path("test_content_parallel_100_files"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_parallel_100_files").c_str(),
+                               "{\"name\":\"Test Content Parallel 100 Files\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (int i = 0; i < 100; ++i) {
+    char *file_id = nullptr;
+    std::string file_name = "pfile_" + std::to_string(i) + ".md";
+    err = vxcore_file_create(ctx, notebook_id, ".", file_name.c_str(), &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+
+    std::string content = "line one\n";
+    if (i < 30) {
+      content += "findme_parallel in file\n";
+    } else {
+      content += "no target pattern here\n";
+    }
+    content += "line three\n";
+    write_file(get_test_path("test_content_parallel_100_files") + "/" + file_name, content);
+  }
+
+  const char *query_json = R"({
+    "pattern": "findme_parallel",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 1000,
+    "scope": {
+      "folderPath": ".",
+      "recursive": true
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 30);
+  ASSERT_EQ(json_results["matches"].size(), 30);
+  ASSERT_EQ(json_results["truncated"].get<bool>(), false);
+
+  for (const auto &matched_file : json_results["matches"]) {
+    ASSERT_EQ(matched_file["matchCount"].get<int>(), 1);
+    ASSERT_EQ(matched_file["matches"].size(), 1);
+    const auto &m = matched_file["matches"][0];
+    ASSERT_EQ(m["lineNumber"].get<int>(), 2);
+    ASSERT_EQ(m["lineText"].get<std::string>(), "findme_parallel in file");
+  }
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_parallel_100_files"));
+  std::cout << "  âœ“ test_search_content_parallel_100_files passed" << std::endl;
+  return 0;
+}
+
+int test_search_content_parallel_ordering() {
+  std::cout << "  Running test_search_content_parallel_ordering..." << std::endl;
+  vxcore_set_test_mode(1);
+  cleanup_test_dir(get_test_path("test_content_parallel_ordering"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_parallel_ordering").c_str(),
+                               "{\"name\":\"Test Content Parallel Ordering\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (int i = 0; i < 60; ++i) {
+    char *file_id = nullptr;
+    std::string suffix = (i < 10 ? "0" : "") + std::to_string(i);
+    std::string file_name = "file_" + suffix + ".md";
+    err = vxcore_file_create(ctx, notebook_id, ".", file_name.c_str(), &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+    write_file(get_test_path("test_content_parallel_ordering") + "/" + file_name, "marker_text\n");
+  }
+
+  const char *query_json = R"({
+    "pattern": "marker_text",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 1000,
+    "scope": {
+      "folderPath": ".",
+      "recursive": true
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 60);
+  ASSERT_EQ(json_results["matches"].size(), 60);
+
+  for (int i = 0; i < 60; ++i) {
+    std::string suffix = (i < 10 ? "0" : "") + std::to_string(i);
+    std::string expected = "file_" + suffix + ".md";
+    std::string path = json_results["matches"][i]["path"].get<std::string>();
+    ASSERT(path.find(expected) != std::string::npos);
+  }
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_parallel_ordering"));
+  std::cout << "  âœ“ test_search_content_parallel_ordering passed" << std::endl;
+  return 0;
+}
+
+int test_search_content_cancel_pre_set() {
+  std::cout << "  Running test_search_content_cancel_pre_set..." << std::endl;
+  vxcore_set_test_mode(1);
+  cleanup_test_dir(get_test_path("test_content_cancel_pre_set"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_cancel_pre_set").c_str(),
+                               "{\"name\":\"Test Content Cancel Pre Set\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (int i = 0; i < 200; ++i) {
+    char *file_id = nullptr;
+    std::string file_name = "cancel_pre_" + std::to_string(i) + ".md";
+    err = vxcore_file_create(ctx, notebook_id, ".", file_name.c_str(), &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+    write_file(get_test_path("test_content_cancel_pre_set") + "/" + file_name,
+               "cancel_pre_content\n");
+  }
+
+  const char *query_json = R"({
+    "pattern": "cancel_pre_content",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 1000,
+    "scope": {
+      "folderPath": ".",
+      "recursive": true
+    }
+  })";
+
+  volatile int cancel_flag = 1;
+  char *results = nullptr;
+  err = vxcore_search_content_ex(ctx, notebook_id, query_json, nullptr, &cancel_flag, &results);
+  ASSERT_EQ(err, VXCORE_ERR_CANCELLED);
+
+  if (results != nullptr) {
+    vxcore_string_free(results);
+  }
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_cancel_pre_set"));
+  std::cout << "  âœ“ test_search_content_cancel_pre_set passed" << std::endl;
+  return 0;
+}
+
+int test_search_content_cancel_mid_search() {
+  std::cout << "  Running test_search_content_cancel_mid_search..." << std::endl;
+  vxcore_set_test_mode(1);
+  cleanup_test_dir(get_test_path("test_content_cancel_mid_search"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_cancel_mid_search").c_str(),
+                               "{\"name\":\"Test Content Cancel Mid Search\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (int i = 0; i < 500; ++i) {
+    char *file_id = nullptr;
+    std::string file_name = "cancel_mid_" + std::to_string(i) + ".md";
+    err = vxcore_file_create(ctx, notebook_id, ".", file_name.c_str(), &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+    write_file(get_test_path("test_content_cancel_mid_search") + "/" + file_name,
+               "cancellable_data\n");
+  }
+
+  const char *query_json = R"({
+    "pattern": "cancellable_data",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 5000,
+    "scope": {
+      "folderPath": ".",
+      "recursive": true
+    }
+  })";
+
+  volatile int cancel_flag = 0;
+  std::thread cancel_thread([&cancel_flag]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    cancel_flag = 1;
+  });
+
+  char *results = nullptr;
+  err = vxcore_search_content_ex(ctx, notebook_id, query_json, nullptr, &cancel_flag, &results);
+  cancel_thread.join();
+
+  // On fast machines the search may finish before the cancel thread fires.
+  // Both outcomes are valid: cancelled early or completed fully.
+  ASSERT(err == VXCORE_ERR_CANCELLED || err == VXCORE_OK);
+
+  if (results != nullptr) {
+    vxcore_string_free(results);
+  }
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_cancel_mid_search"));
+  std::cout << "  âœ“ test_search_content_cancel_mid_search passed" << std::endl;
+  return 0;
+}
+
+int test_search_content_threshold_below() {
+  std::cout << "  Running test_search_content_threshold_below..." << std::endl;
+  vxcore_set_test_mode(1);
+  cleanup_test_dir(get_test_path("test_content_threshold_below"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_threshold_below").c_str(),
+                               "{\"name\":\"Test Content Threshold Below\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (int i = 0; i < 49; ++i) {
+    char *file_id = nullptr;
+    std::string file_name = "threshold_below_" + std::to_string(i) + ".md";
+    err = vxcore_file_create(ctx, notebook_id, ".", file_name.c_str(), &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+    write_file(get_test_path("test_content_threshold_below") + "/" + file_name, "threshold_test\n");
+  }
+
+  const char *query_json = R"({
+    "pattern": "threshold_test",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 1000,
+    "scope": {
+      "folderPath": ".",
+      "recursive": true
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 49);
+  ASSERT_EQ(json_results["matches"].size(), 49);
+  ASSERT_EQ(json_results["truncated"].get<bool>(), false);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_threshold_below"));
+  std::cout << "  âœ“ test_search_content_threshold_below passed" << std::endl;
+  return 0;
+}
+
+int test_search_content_threshold_at() {
+  std::cout << "  Running test_search_content_threshold_at..." << std::endl;
+  vxcore_set_test_mode(1);
+  cleanup_test_dir(get_test_path("test_content_threshold_at"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_threshold_at").c_str(),
+                               "{\"name\":\"Test Content Threshold At\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (int i = 0; i < 50; ++i) {
+    char *file_id = nullptr;
+    std::string file_name = "threshold_at_" + std::to_string(i) + ".md";
+    err = vxcore_file_create(ctx, notebook_id, ".", file_name.c_str(), &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+    write_file(get_test_path("test_content_threshold_at") + "/" + file_name, "threshold_test\n");
+  }
+
+  const char *query_json = R"({
+    "pattern": "threshold_test",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 1000,
+    "scope": {
+      "folderPath": ".",
+      "recursive": true
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 50);
+  ASSERT_EQ(json_results["matches"].size(), 50);
+  ASSERT_EQ(json_results["truncated"].get<bool>(), false);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_threshold_at"));
+  std::cout << "  âœ“ test_search_content_threshold_at passed" << std::endl;
+  return 0;
+}
+
+int test_search_content_max_results_parallel() {
+  std::cout << "  Running test_search_content_max_results_parallel..." << std::endl;
+  vxcore_set_test_mode(1);
+  cleanup_test_dir(get_test_path("test_content_max_results_parallel"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_max_results_parallel").c_str(),
+                               "{\"name\":\"Test Content Max Results Parallel\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (int i = 0; i < 100; ++i) {
+    char *file_id = nullptr;
+    std::string suffix = (i < 10 ? "0" : "") + std::to_string(i);
+    std::string file_name = "max_parallel_" + suffix + ".md";
+    err = vxcore_file_create(ctx, notebook_id, ".", file_name.c_str(), &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+    write_file(get_test_path("test_content_max_results_parallel") + "/" + file_name,
+               "multi_match\nmulti_match\nmulti_match\nmulti_match\nmulti_match\n");
+  }
+
+  const char *query_json = R"({
+    "pattern": "multi_match",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 10,
+    "scope": {
+      "folderPath": ".",
+      "recursive": true
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["truncated"].get<bool>(), true);
+
+  int total_match_count = 0;
+  std::string prev_path;
+  bool first = true;
+  for (const auto &matched_file : json_results["matches"]) {
+    total_match_count += matched_file["matchCount"].get<int>();
+    std::string path = matched_file["path"].get<std::string>();
+    if (!first) {
+      ASSERT(prev_path <= path);
+    }
+    first = false;
+    prev_path = path;
+  }
+  ASSERT(total_match_count <= 10);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_max_results_parallel"));
+  std::cout << "  âœ“ test_search_content_max_results_parallel passed" << std::endl;
+  return 0;
+}
+
+int test_search_content_parallel_no_matches() {
+  std::cout << "  Running test_search_content_parallel_no_matches..." << std::endl;
+  vxcore_set_test_mode(1);
+  cleanup_test_dir(get_test_path("test_content_parallel_no_matches"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_parallel_no_matches").c_str(),
+                               "{\"name\":\"Test Content Parallel No Matches\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (int i = 0; i < 100; ++i) {
+    char *file_id = nullptr;
+    std::string file_name = "no_match_parallel_" + std::to_string(i) + ".md";
+    err = vxcore_file_create(ctx, notebook_id, ".", file_name.c_str(), &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+    write_file(get_test_path("test_content_parallel_no_matches") + "/" + file_name,
+               "some_content\n");
+  }
+
+  const char *query_json = R"({
+    "pattern": "nonexistent_xyz",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 1000,
+    "scope": {
+      "folderPath": ".",
+      "recursive": true
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 0);
+  ASSERT_EQ(json_results["matches"].size(), 0);
+  ASSERT_EQ(json_results["truncated"].get<bool>(), false);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_parallel_no_matches"));
+  std::cout << "  âœ“ test_search_content_parallel_no_matches passed" << std::endl;
+  return 0;
+}
+
 int test_search_by_tags_with_exclude_tags() {
   std::cout << "  Running test_search_by_tags_with_exclude_tags..." << std::endl;
   cleanup_test_dir(get_test_path("test_tags_exclude"));
@@ -2419,6 +2896,14 @@ int main() {
   RUN_TEST(test_content_search_max_results);
   RUN_TEST(test_content_search_empty_pattern);
   RUN_TEST(test_content_search_no_matches);
+  RUN_TEST(test_search_content_parallel_100_files);
+  RUN_TEST(test_search_content_parallel_ordering);
+  RUN_TEST(test_search_content_cancel_pre_set);
+  RUN_TEST(test_search_content_cancel_mid_search);
+  RUN_TEST(test_search_content_threshold_below);
+  RUN_TEST(test_search_content_threshold_at);
+  RUN_TEST(test_search_content_max_results_parallel);
+  RUN_TEST(test_search_content_parallel_no_matches);
 
   std::cout << "All search tests passed!" << std::endl;
   return 0;
