@@ -89,6 +89,18 @@ VXCORE_API const char *vxcore_error_message(VxCoreError error) {
       return "Permission denied";
     case VXCORE_ERR_UNSUPPORTED:
       return "Unsupported operation";
+    case VXCORE_ERR_NOT_IMPLEMENTED:
+      return "Not implemented";
+    case VXCORE_ERR_BUFFER_NOT_FOUND:
+      return "Buffer not found";
+    case VXCORE_ERR_WORKSPACE_NOT_FOUND:
+      return "Workspace not found";
+    case VXCORE_ERR_FILE_CHANGED_OUTSIDE:
+      return "File changed outside";
+    case VXCORE_ERR_BUFFER_ALREADY_OPEN:
+      return "Buffer already open";
+    case VXCORE_ERR_CANCELLED:
+      return "Operation was cancelled";
     default:
       return "Unknown error";
   }
