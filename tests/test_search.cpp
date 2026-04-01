@@ -1262,6 +1262,664 @@ int test_search_content_exclude_patterns() {
   return 0;
 }
 
+int test_content_search_basic() {
+  std::cout << "  Running test_content_search_basic..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_basic"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_basic").c_str(),
+                               "{\"name\":\"Test Content Basic\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file1_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "alpha.md", &file1_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file1_id);
+
+  char *file2_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "beta.md", &file2_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file2_id);
+
+  write_file(get_test_path("test_content_basic") + "/alpha.md", "prefix\nhello world\nsuffix\n");
+  write_file(get_test_path("test_content_basic") + "/beta.md", "line 1\nHello World\n");
+
+  const char *query_json = R"({
+    "pattern": "hello",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 2);
+  ASSERT_EQ(json_results["truncated"].get<bool>(), false);
+  ASSERT(json_results["matches"].is_array());
+
+  bool found_alpha = false;
+  bool found_beta = false;
+  for (const auto &matched_file : json_results["matches"]) {
+    const std::string path = matched_file["path"].get<std::string>();
+    if (path.find("alpha.md") != std::string::npos) {
+      found_alpha = true;
+      ASSERT_EQ(matched_file["matchCount"].get<int>(), 1);
+      ASSERT_EQ(matched_file["matches"].size(), 1);
+      const auto &m = matched_file["matches"][0];
+      ASSERT_EQ(m["lineNumber"].get<int>(), 2);
+      ASSERT_EQ(m["columnStart"].get<int>(), 0);
+      ASSERT_EQ(m["columnEnd"].get<int>(), 5);
+      ASSERT_EQ(m["lineText"].get<std::string>(), "hello world");
+    }
+    if (path.find("beta.md") != std::string::npos) {
+      found_beta = true;
+      ASSERT_EQ(matched_file["matchCount"].get<int>(), 1);
+      ASSERT_EQ(matched_file["matches"].size(), 1);
+      const auto &m = matched_file["matches"][0];
+      ASSERT_EQ(m["lineNumber"].get<int>(), 2);
+      ASSERT_EQ(m["columnStart"].get<int>(), 0);
+      ASSERT_EQ(m["columnEnd"].get<int>(), 5);
+      ASSERT_EQ(m["lineText"].get<std::string>(), "Hello World");
+    }
+  }
+  ASSERT(found_alpha);
+  ASSERT(found_beta);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_basic"));
+  std::cout << "  âœ“ test_content_search_basic passed" << std::endl;
+  return 0;
+}
+
+int test_content_search_case_insensitive() {
+  std::cout << "  Running test_content_search_case_insensitive..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_case_insensitive"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_case_insensitive").c_str(),
+                               "{\"name\":\"Test Content Case Insensitive\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "case.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file_id);
+
+  write_file(get_test_path("test_content_case_insensitive") + "/case.md", "hello world\n");
+
+  const char *query_json = R"({
+    "pattern": "Hello",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 1);
+  ASSERT_EQ(json_results["matches"][0]["matchCount"].get<int>(), 1);
+  ASSERT_EQ(json_results["matches"][0]["matches"][0]["lineText"].get<std::string>(), "hello world");
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_case_insensitive"));
+  std::cout << "  âœ“ test_content_search_case_insensitive passed" << std::endl;
+  return 0;
+}
+
+int test_content_search_case_sensitive() {
+  std::cout << "  Running test_content_search_case_sensitive..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_case_sensitive"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_case_sensitive").c_str(),
+                               "{\"name\":\"Test Content Case Sensitive\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "case.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file_id);
+
+  write_file(get_test_path("test_content_case_sensitive") + "/case.md", "hello world\n");
+
+  const char *query_json = R"({
+    "pattern": "Hello",
+    "caseSensitive": true,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 0);
+  ASSERT_EQ(json_results["matches"].size(), 0);
+  ASSERT_EQ(json_results["truncated"].get<bool>(), false);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_case_sensitive"));
+  std::cout << "  âœ“ test_content_search_case_sensitive passed" << std::endl;
+  return 0;
+}
+
+int test_content_search_whole_word() {
+  std::cout << "  Running test_content_search_whole_word..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_whole_word"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_whole_word").c_str(),
+                               "{\"name\":\"Test Content Whole Word\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "whole.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file_id);
+
+  write_file(get_test_path("test_content_whole_word") + "/whole.md", "testing test case tester\n");
+
+  const char *query_json = R"({
+    "pattern": "test",
+    "caseSensitive": false,
+    "wholeWord": true,
+    "regex": false,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 1);
+  auto file = json_results["matches"][0];
+  ASSERT_EQ(file["matchCount"].get<int>(), 1);
+  auto match = file["matches"][0];
+  ASSERT_EQ(match["lineNumber"].get<int>(), 1);
+  ASSERT_EQ(match["columnStart"].get<int>(), 8);
+  ASSERT_EQ(match["columnEnd"].get<int>(), 12);
+  ASSERT_EQ(match["lineText"].get<std::string>(), "testing test case tester");
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_whole_word"));
+  std::cout << "  âœ“ test_content_search_whole_word passed" << std::endl;
+  return 0;
+}
+
+int test_content_search_regex() {
+  std::cout << "  Running test_content_search_regex..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_regex"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_regex").c_str(),
+                               "{\"name\":\"Test Content Regex\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "regex.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file_id);
+
+  write_file(get_test_path("test_content_regex") + "/regex.md", "id 123\nabc\nline 45 and 678\n");
+
+  const char *query_json = R"({
+    "pattern": "\\d+",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": true,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 1);
+  auto file = json_results["matches"][0];
+  ASSERT_EQ(file["matchCount"].get<int>(), 3);
+
+  ASSERT_EQ(file["matches"][0]["lineNumber"].get<int>(), 1);
+  ASSERT_EQ(file["matches"][0]["columnStart"].get<int>(), 3);
+  ASSERT_EQ(file["matches"][0]["columnEnd"].get<int>(), 6);
+  ASSERT_EQ(file["matches"][0]["lineText"].get<std::string>(), "id 123");
+
+  ASSERT_EQ(file["matches"][1]["lineNumber"].get<int>(), 3);
+  ASSERT_EQ(file["matches"][1]["columnStart"].get<int>(), 5);
+  ASSERT_EQ(file["matches"][1]["columnEnd"].get<int>(), 7);
+  ASSERT_EQ(file["matches"][1]["lineText"].get<std::string>(), "line 45 and 678");
+
+  ASSERT_EQ(file["matches"][2]["lineNumber"].get<int>(), 3);
+  ASSERT_EQ(file["matches"][2]["columnStart"].get<int>(), 12);
+  ASSERT_EQ(file["matches"][2]["columnEnd"].get<int>(), 15);
+  ASSERT_EQ(file["matches"][2]["lineText"].get<std::string>(), "line 45 and 678");
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_regex"));
+  std::cout << "  âœ“ test_content_search_regex passed" << std::endl;
+  return 0;
+}
+
+int test_content_search_multi_file() {
+  std::cout << "  Running test_content_search_multi_file..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_multi_file"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_multi_file").c_str(),
+                               "{\"name\":\"Test Content Multi File\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (int i = 1; i <= 5; ++i) {
+    char *file_id = nullptr;
+    std::string name = "file" + std::to_string(i) + ".md";
+    err = vxcore_file_create(ctx, notebook_id, ".", name.c_str(), &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+  }
+
+  write_file(get_test_path("test_content_multi_file") + "/file1.md", "needle here\n");
+  write_file(get_test_path("test_content_multi_file") + "/file2.md", "no match\n");
+  write_file(get_test_path("test_content_multi_file") + "/file3.md", "another needle\n");
+  write_file(get_test_path("test_content_multi_file") + "/file4.md", "nothing\n");
+  write_file(get_test_path("test_content_multi_file") + "/file5.md", "needle again\n");
+
+  const char *query_json = R"({
+    "pattern": "needle",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 3);
+  ASSERT_EQ(json_results["matches"].size(), 3);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_multi_file"));
+  std::cout << "  âœ“ test_content_search_multi_file passed" << std::endl;
+  return 0;
+}
+
+int test_content_search_multiple_matches_per_line() {
+  std::cout << "  Running test_content_search_multiple_matches_per_line..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_multi_match_line"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_multi_match_line").c_str(),
+                               "{\"name\":\"Test Content Multi Match Line\"}",
+                               VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "aaa.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file_id);
+
+  write_file(get_test_path("test_content_multi_match_line") + "/aaa.md", "aaa\n");
+
+  const char *query_json = R"({
+    "pattern": "a",
+    "caseSensitive": true,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 1);
+  auto file = json_results["matches"][0];
+  ASSERT_EQ(file["matchCount"].get<int>(), 3);
+  ASSERT_EQ(file["matches"][0]["columnStart"].get<int>(), 0);
+  ASSERT_EQ(file["matches"][0]["columnEnd"].get<int>(), 1);
+  ASSERT_EQ(file["matches"][1]["columnStart"].get<int>(), 1);
+  ASSERT_EQ(file["matches"][1]["columnEnd"].get<int>(), 2);
+  ASSERT_EQ(file["matches"][2]["columnStart"].get<int>(), 2);
+  ASSERT_EQ(file["matches"][2]["columnEnd"].get<int>(), 3);
+  ASSERT_EQ(file["matches"][0]["lineNumber"].get<int>(), 1);
+  ASSERT_EQ(file["matches"][1]["lineNumber"].get<int>(), 1);
+  ASSERT_EQ(file["matches"][2]["lineNumber"].get<int>(), 1);
+  ASSERT_EQ(file["matches"][0]["lineText"].get<std::string>(), "aaa");
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_multi_match_line"));
+  std::cout << "  âœ“ test_content_search_multiple_matches_per_line passed" << std::endl;
+  return 0;
+}
+
+int test_content_search_result_ordering() {
+  std::cout << "  Running test_content_search_result_ordering..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_ordering"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_ordering").c_str(),
+                               "{\"name\":\"Test Content Ordering\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (const char *name : {"a.md", "b.md", "c.md", "d.md"}) {
+    char *file_id = nullptr;
+    err = vxcore_file_create(ctx, notebook_id, ".", name, &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+  }
+
+  write_file(get_test_path("test_content_ordering") + "/a.md", "hit in a\n");
+  write_file(get_test_path("test_content_ordering") + "/b.md", "nope\n");
+  write_file(get_test_path("test_content_ordering") + "/c.md", "hit in c\n");
+  write_file(get_test_path("test_content_ordering") + "/d.md", "hit in d\n");
+
+  const char *query_json = R"({
+    "pattern": "hit",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  nlohmann::json input_files_json;
+  input_files_json["files"] = nlohmann::json::array({"b.md", "d.md", "a.md", "c.md"});
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, input_files_json.dump().c_str(),
+                              &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 3);
+  ASSERT_EQ(json_results["matches"].size(), 3);
+
+  ASSERT(json_results["matches"][0]["path"].get<std::string>().find("d.md") != std::string::npos);
+  ASSERT(json_results["matches"][1]["path"].get<std::string>().find("a.md") != std::string::npos);
+  ASSERT(json_results["matches"][2]["path"].get<std::string>().find("c.md") != std::string::npos);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_ordering"));
+  std::cout << "  âœ“ test_content_search_result_ordering passed" << std::endl;
+  return 0;
+}
+
+int test_content_search_max_results() {
+  std::cout << "  Running test_content_search_max_results..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_max_results"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_max_results").c_str(),
+                               "{\"name\":\"Test Content Max Results\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  for (int i = 1; i <= 10; ++i) {
+    char *file_id = nullptr;
+    std::string file_name = "file" + std::to_string(i) + ".md";
+    err = vxcore_file_create(ctx, notebook_id, ".", file_name.c_str(), &file_id);
+    ASSERT_EQ(err, VXCORE_OK);
+    vxcore_string_free(file_id);
+
+    write_file(get_test_path("test_content_max_results") + "/" + file_name,
+               "hit\nhit\nhit\nhit\nhit\n");
+  }
+
+  const char *query_json = R"({
+    "pattern": "hit",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 10,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["truncated"].get<bool>(), true);
+  ASSERT(json_results["matchCount"].get<int>() >= 1);
+
+  int total_match_count = 0;
+  for (const auto &matched_file : json_results["matches"]) {
+    total_match_count += matched_file["matchCount"].get<int>();
+  }
+  ASSERT(total_match_count <= 10);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_max_results"));
+  std::cout << "  âœ“ test_content_search_max_results passed" << std::endl;
+  return 0;
+}
+
+int test_content_search_empty_pattern() {
+  std::cout << "  Running test_content_search_empty_pattern..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_empty_pattern"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_empty_pattern").c_str(),
+                               "{\"name\":\"Test Content Empty Pattern\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "empty.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file_id);
+
+  write_file(get_test_path("test_content_empty_pattern") + "/empty.md", "some content\n");
+
+  const char *query_json = R"({
+    "pattern": "",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 0);
+  ASSERT_EQ(json_results["matches"].size(), 0);
+  ASSERT_EQ(json_results["truncated"].get<bool>(), false);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_empty_pattern"));
+  std::cout << "  âœ“ test_content_search_empty_pattern passed" << std::endl;
+  return 0;
+}
+
+int test_content_search_no_matches() {
+  std::cout << "  Running test_content_search_no_matches..." << std::endl;
+  cleanup_test_dir(get_test_path("test_content_no_matches"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_content_no_matches").c_str(),
+                               "{\"name\":\"Test Content No Matches\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file1_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "a.md", &file1_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file1_id);
+
+  char *file2_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "b.md", &file2_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file2_id);
+
+  write_file(get_test_path("test_content_no_matches") + "/a.md", "alpha beta\n");
+  write_file(get_test_path("test_content_no_matches") + "/b.md", "gamma delta\n");
+
+  const char *query_json = R"({
+    "pattern": "unmatched-pattern",
+    "caseSensitive": false,
+    "wholeWord": false,
+    "regex": false,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_content(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 0);
+  ASSERT_EQ(json_results["matches"].size(), 0);
+  ASSERT_EQ(json_results["truncated"].get<bool>(), false);
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_content_no_matches"));
+  std::cout << "  âœ“ test_content_search_no_matches passed" << std::endl;
+  return 0;
+}
+
 int test_search_by_tags_with_exclude_tags() {
   std::cout << "  Running test_search_by_tags_with_exclude_tags..." << std::endl;
   cleanup_test_dir(get_test_path("test_tags_exclude"));
@@ -1749,6 +2407,18 @@ int main() {
   RUN_TEST(test_tag_find_files_in_subfolder);
   RUN_TEST(test_tag_find_files_invalid_params);
   RUN_TEST(test_tag_count_files_by_tag);
+
+  RUN_TEST(test_content_search_basic);
+  RUN_TEST(test_content_search_case_insensitive);
+  RUN_TEST(test_content_search_case_sensitive);
+  RUN_TEST(test_content_search_whole_word);
+  RUN_TEST(test_content_search_regex);
+  RUN_TEST(test_content_search_multi_file);
+  RUN_TEST(test_content_search_multiple_matches_per_line);
+  RUN_TEST(test_content_search_result_ordering);
+  RUN_TEST(test_content_search_max_results);
+  RUN_TEST(test_content_search_empty_pattern);
+  RUN_TEST(test_content_search_no_matches);
 
   std::cout << "All search tests passed!" << std::endl;
   return 0;
