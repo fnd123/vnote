@@ -1,13 +1,21 @@
 #include "simple_search_backend.h"
 
+#include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <future>
 
 #include "search_file_info.h"
 #include "utils/string_utils.h"
 #include "utils/utils.h"
 
 namespace vxcore {
+
+namespace {
+
+constexpr int kParallelSearchThreshold = 50;
+
+}  // namespace
 
 bool DoRegexMatch(const std::regex &pattern_regex, const std::string &line, int line_number,
                   std::vector<SearchMatch> &out_matches) {
@@ -94,6 +102,181 @@ bool SimpleSearchBackend::MatchesPattern(const std::string &line, const std::str
   }
 }
 
+void SimpleSearchBackend::SetThreadPool(BS::thread_pool<> *pool) { thread_pool_ = pool; }
+
+void SimpleSearchBackend::SetCancelFlag(const volatile int *flag) { cancel_flag_ = flag; }
+
+VxCoreError SimpleSearchBackend::SearchSequential(
+    const std::vector<SearchFileInfo> &files,
+    const std::function<bool(const std::string &, int, std::vector<SearchMatch> &)> &do_match,
+    const std::vector<std::string> &content_exclude_patterns,
+    const std::vector<std::string> &lowercased_exclude_patterns,
+    const std::vector<std::regex> &exclude_regexes, int max_results,
+    ContentSearchResult &out_result) {
+  int total_matches = 0;
+  for (const auto &file_info : files) {
+    if (out_result.truncated) {
+      break;
+    }
+
+    std::ifstream file(file_info.absolute_path);
+    if (!file.is_open()) {
+      continue;
+    }
+
+    std::vector<SearchMatch> file_matches;
+    std::string line;
+    int line_number = 0;
+
+    while (!out_result.truncated && std::getline(file, line)) {
+      line_number++;
+
+      if (IsLineExcluded(line, content_exclude_patterns, lowercased_exclude_patterns,
+                         exclude_regexes)) {
+        continue;
+      }
+
+      std::vector<SearchMatch> line_matches;
+      if (do_match(line, line_number, line_matches)) {
+        for (auto &match : line_matches) {
+          total_matches++;
+          file_matches.push_back(std::move(match));
+          if (max_results > 0 && total_matches >= max_results) {
+            out_result.truncated = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!file_matches.empty()) {
+      ContentSearchMatchedFile matched_file;
+      matched_file.path = file_info.path;
+      matched_file.id = file_info.id;
+      matched_file.matches = std::move(file_matches);
+      out_result.matched_files.push_back(std::move(matched_file));
+    }
+  }
+
+  return VXCORE_OK;
+}
+
+VxCoreError SimpleSearchBackend::SearchParallel(
+    const std::vector<SearchFileInfo> &files,
+    const std::function<bool(const std::string &, int, std::vector<SearchMatch> &)> &do_match,
+    const std::vector<std::string> &content_exclude_patterns,
+    const std::vector<std::string> &lowercased_exclude_patterns,
+    const std::vector<std::regex> &exclude_regexes, int max_results,
+    ContentSearchResult &out_result) {
+  struct ChunkSearchResult {
+    ContentSearchResult result;
+    bool cancelled = false;
+  };
+
+  const size_t file_count = files.size();
+  const size_t worker_count =
+      std::max(static_cast<size_t>(1), static_cast<size_t>(thread_pool_->get_thread_count()));
+  const size_t chunk_count = std::min(file_count, worker_count);
+  const size_t base_chunk_size = file_count / chunk_count;
+  const size_t remainder = file_count % chunk_count;
+
+  std::vector<std::future<ChunkSearchResult>> futures;
+  futures.reserve(chunk_count);
+
+  size_t start = 0;
+  for (size_t chunk_index = 0; chunk_index < chunk_count; ++chunk_index) {
+    const size_t chunk_size = base_chunk_size + (chunk_index < remainder ? 1 : 0);
+    const size_t end = start + chunk_size;
+
+    futures.push_back(thread_pool_->submit_task([&, start, end]() -> ChunkSearchResult {
+      ChunkSearchResult chunk_result;
+
+      for (size_t i = start; i < end; ++i) {
+        if (cancel_flag_ && *cancel_flag_ != 0) {
+          chunk_result.cancelled = true;
+          break;
+        }
+
+        const auto &file_info = files[i];
+        std::ifstream file(file_info.absolute_path);
+        if (!file.is_open()) {
+          continue;
+        }
+
+        std::vector<SearchMatch> file_matches;
+        std::string line;
+        int line_number = 0;
+
+        while (std::getline(file, line)) {
+          line_number++;
+
+          if (IsLineExcluded(line, content_exclude_patterns, lowercased_exclude_patterns,
+                             exclude_regexes)) {
+            continue;
+          }
+
+          std::vector<SearchMatch> line_matches;
+          if (do_match(line, line_number, line_matches)) {
+            for (auto &match : line_matches) {
+              file_matches.push_back(std::move(match));
+            }
+          }
+        }
+
+        if (!file_matches.empty()) {
+          ContentSearchMatchedFile matched_file;
+          matched_file.path = file_info.path;
+          matched_file.id = file_info.id;
+          matched_file.matches = std::move(file_matches);
+          chunk_result.result.matched_files.push_back(std::move(matched_file));
+        }
+      }
+
+      return chunk_result;
+    }));
+
+    start = end;
+  }
+
+  bool cancelled = false;
+  std::vector<ChunkSearchResult> chunk_results;
+  chunk_results.reserve(chunk_count);
+  for (auto &future : futures) {
+    auto chunk_result = future.get();
+    cancelled = cancelled || chunk_result.cancelled;
+    chunk_results.push_back(std::move(chunk_result));
+  }
+
+  for (auto &chunk_result : chunk_results) {
+    for (auto &matched_file : chunk_result.result.matched_files) {
+      out_result.matched_files.push_back(std::move(matched_file));
+    }
+  }
+
+  if (max_results > 0) {
+    int total = 0;
+    for (size_t i = 0; i < out_result.matched_files.size(); ++i) {
+      auto &matched_file = out_result.matched_files[i];
+      for (size_t j = 0; j < matched_file.matches.size(); ++j) {
+        total++;
+        if (total >= max_results) {
+          matched_file.matches.resize(j + 1);
+          out_result.matched_files.resize(i + 1);
+          out_result.truncated = true;
+          goto done_truncation;
+        }
+      }
+    }
+  }
+
+done_truncation:
+  if (cancelled || (cancel_flag_ && *cancel_flag_ != 0)) {
+    return VXCORE_ERR_CANCELLED;
+  }
+
+  return VXCORE_OK;
+}
+
 VxCoreError SimpleSearchBackend::Search(const std::vector<SearchFileInfo> &files,
                                         const std::string &pattern, SearchOption options,
                                         const std::vector<std::string> &content_exclude_patterns,
@@ -149,52 +332,13 @@ VxCoreError SimpleSearchBackend::Search(const std::vector<SearchFileInfo> &files
     return err;
   }
 
-  int total_matches = 0;
-  for (const auto &file_info : files) {
-    if (out_result.truncated) {
-      break;
-    }
-
-    std::ifstream file(file_info.absolute_path);
-    if (!file.is_open()) {
-      continue;
-    }
-
-    std::vector<SearchMatch> file_matches;
-    std::string line;
-    int line_number = 0;
-
-    while (!out_result.truncated && std::getline(file, line)) {
-      line_number++;
-
-      if (IsLineExcluded(line, content_exclude_patterns, lowercased_exclude_patterns,
-                         exclude_regexes)) {
-        continue;
-      }
-
-      std::vector<SearchMatch> line_matches;
-      if (do_match(line, line_number, line_matches)) {
-        for (auto &match : line_matches) {
-          total_matches++;
-          file_matches.push_back(std::move(match));
-          if (max_results > 0 && total_matches >= max_results) {
-            out_result.truncated = true;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!file_matches.empty()) {
-      ContentSearchMatchedFile matched_file;
-      matched_file.path = file_info.path;
-      matched_file.id = file_info.id;
-      matched_file.matches = std::move(file_matches);
-      out_result.matched_files.push_back(std::move(matched_file));
-    }
+  if (!thread_pool_ || static_cast<int>(files.size()) < kParallelSearchThreshold) {
+    return SearchSequential(files, do_match, content_exclude_patterns, lowercased_exclude_patterns,
+                            exclude_regexes, max_results, out_result);
   }
 
-  return VXCORE_OK;
+  return SearchParallel(files, do_match, content_exclude_patterns, lowercased_exclude_patterns,
+                        exclude_regexes, max_results, out_result);
 }
 
 }  // namespace vxcore

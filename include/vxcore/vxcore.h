@@ -326,6 +326,16 @@ VXCORE_API VxCoreError vxcore_search_content(VxCoreContextHandle context, const 
                                              const char *query_json, const char *input_files_json,
                                              char **out_results_json);
 
+// Extended content search with cooperative cancellation support.
+// cancel_flag: Pointer to a volatile int that the caller can set to non-zero from another thread
+//   to request early cancellation. If NULL, no cancellation support (behaves like
+//   vxcore_search_content). Returns VXCORE_ERR_CANCELLED if cancellation was triggered.
+// Caller must free out_results_json with vxcore_string_free().
+VXCORE_API VxCoreError vxcore_search_content_ex(VxCoreContextHandle context,
+                                                const char *notebook_id, const char *query_json,
+                                                const char *input_files_json,
+                                                volatile int *cancel_flag, char **out_results_json);
+
 VXCORE_API VxCoreError vxcore_search_by_tags(VxCoreContextHandle context, const char *notebook_id,
                                              const char *query_json, const char *input_files_json,
                                              char **out_results_json);

@@ -34,6 +34,10 @@ SearchManager::SearchManager(Notebook *notebook, const std::string &search_backe
 
 SearchManager::~SearchManager() = default;
 
+void SearchManager::SetThreadPool(BS::thread_pool<> *pool) { thread_pool_ = pool; }
+
+void SearchManager::SetCancelFlag(const volatile int *flag) { cancel_flag_ = flag; }
+
 VxCoreError SearchManager::SearchFiles(const std::string &query_json,
                                        const std::string &input_files_json,
                                        std::string &out_results_json) {
@@ -76,6 +80,11 @@ VxCoreError SearchManager::SearchContent(const std::string &query_json,
     result["matches"] = nlohmann::json::array();
     auto &total_matches = result["matches"];
     if (search_backend_) {
+      if (auto *simple = dynamic_cast<SimpleSearchBackend *>(search_backend_.get())) {
+        simple->SetThreadPool(thread_pool_);
+        simple->SetCancelFlag(cancel_flag_);
+      }
+
       ContentSearchResult search_result;
 
       VxCoreError search_err =
@@ -103,6 +112,9 @@ VxCoreError SearchManager::SearchContent(const std::string &query_json,
 
         result["matchCount"] = result["matches"].size();
         result["truncated"] = search_result.truncated;
+      } else if (search_err == VXCORE_ERR_CANCELLED) {
+        out_results_json = result.dump();
+        return VXCORE_ERR_CANCELLED;
       } else {
         VXCORE_LOG_WARN("Search backend failed with error: %d", search_err);
       }

@@ -1,3 +1,5 @@
+#include <BS_thread_pool/BS_thread_pool.hpp>
+
 #include "api/api_utils.h"
 #include "core/config_manager.h"
 #include "core/context.h"
@@ -7,7 +9,9 @@
 #include "vxcore/vxcore.h"
 
 std::unique_ptr<vxcore::SearchManager> CreateSearchManager(vxcore::VxCoreContext *ctx,
-                                                           vxcore::Notebook *notebook) {
+                                                           vxcore::Notebook *notebook,
+                                                           BS::thread_pool<> *pool,
+                                                           const volatile int *cancel_flag) {
   std::string backend = "simple";
   if (ctx && ctx->config_manager) {
     const auto &backends = ctx->config_manager->GetConfig().search.backends;
@@ -21,7 +25,10 @@ std::unique_ptr<vxcore::SearchManager> CreateSearchManager(vxcore::VxCoreContext
       }
     }
   }
-  return std::make_unique<vxcore::SearchManager>(notebook, backend);
+  auto manager = std::make_unique<vxcore::SearchManager>(notebook, backend);
+  manager->SetThreadPool(pool);
+  manager->SetCancelFlag(cancel_flag);
+  return manager;
 }
 
 VXCORE_API VxCoreError vxcore_search_files(VxCoreContextHandle context, const char *notebook_id,
@@ -40,7 +47,7 @@ VXCORE_API VxCoreError vxcore_search_files(VxCoreContextHandle context, const ch
       return VXCORE_ERR_NOT_FOUND;
     }
 
-    auto search_manager = CreateSearchManager(ctx, notebook);
+    auto search_manager = CreateSearchManager(ctx, notebook, nullptr, nullptr);
 
     std::string results_json;
     std::string input_files_str = input_files_json ? input_files_json : "";
@@ -82,12 +89,59 @@ VXCORE_API VxCoreError vxcore_search_content(VxCoreContextHandle context, const 
       return VXCORE_ERR_NOT_FOUND;
     }
 
-    auto search_manager = CreateSearchManager(ctx, notebook);
+    auto search_manager = CreateSearchManager(ctx, notebook, &ctx->GetThreadPool(), nullptr);
 
     std::string results_json;
     std::string input_files_str = input_files_json ? input_files_json : "";
     VxCoreError err = search_manager->SearchContent(query_json, input_files_str, results_json);
     if (err != VXCORE_OK) {
+      ctx->last_error = "Search content failed";
+      return err;
+    }
+
+    char *json_copy = vxcore_strdup(results_json.c_str());
+    if (!json_copy) {
+      return VXCORE_ERR_OUT_OF_MEMORY;
+    }
+
+    *out_results_json = json_copy;
+    return VXCORE_OK;
+  } catch (const std::exception &e) {
+    ctx->last_error = e.what();
+    return VXCORE_ERR_UNKNOWN;
+  } catch (...) {
+    ctx->last_error = "Unknown error searching content";
+    return VXCORE_ERR_UNKNOWN;
+  }
+}
+
+VXCORE_API VxCoreError vxcore_search_content_ex(VxCoreContextHandle context,
+                                                const char *notebook_id, const char *query_json,
+                                                const char *input_files_json,
+                                                volatile int *cancel_flag,
+                                                char **out_results_json) {
+  if (!context || !notebook_id || !query_json || !out_results_json) {
+    return VXCORE_ERR_NULL_POINTER;
+  }
+
+  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
+
+  try {
+    auto *notebook = ctx->notebook_manager->GetNotebook(notebook_id);
+    if (!notebook) {
+      ctx->last_error = "Notebook not found";
+      return VXCORE_ERR_NOT_FOUND;
+    }
+
+    auto search_manager = CreateSearchManager(ctx, notebook, &ctx->GetThreadPool(), cancel_flag);
+
+    std::string results_json;
+    std::string input_files_str = input_files_json ? input_files_json : "";
+    VxCoreError err = search_manager->SearchContent(query_json, input_files_str, results_json);
+    if (err != VXCORE_OK) {
+      if (err == VXCORE_ERR_CANCELLED) {
+        return err;  // Don't overwrite with generic error message
+      }
       ctx->last_error = "Search content failed";
       return err;
     }
