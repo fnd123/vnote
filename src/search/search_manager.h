@@ -61,8 +61,8 @@ class SearchManager {
                                    int max_results);
 
   void CollectFilesInFolder(const std::string &folder_path, bool recursive,
-                            const std::vector<std::string> &path_patterns,
-                            const std::vector<std::string> &exclude_path_patterns,
+                            const std::vector<std::string> &lower_path_patterns,
+                            const std::vector<std::string> &lower_exclude_path_patterns,
                             bool include_folders, std::vector<SearchFileInfo> &out_files);
 
   bool MatchesTags(const std::vector<std::string> &file_tags,

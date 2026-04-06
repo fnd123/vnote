@@ -23,6 +23,9 @@ bool IsLineExcluded(const std::string &line, const std::vector<std::string> &exc
 // Returns true if |text| matches |pattern|. Supports '*' and '?' wildcards.
 bool MatchesPattern(const std::string &text, const std::string &pattern);
 
+// Case-insensitive version of MatchesPattern.
+bool MatchesPatternCaseInsensitive(const std::string &text, const std::string &pattern);
+
 bool MatchesPatterns(const std::string &text, const std::vector<std::string> &patterns);
 
 }  // namespace vxcore

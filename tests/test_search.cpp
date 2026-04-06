@@ -2850,6 +2850,399 @@ int test_tag_count_files_by_tag() {
   return 0;
 }
 
+int test_search_files_case_insensitive() {
+  std::cout << "  Running test_search_files_case_insensitive..." << std::endl;
+  cleanup_test_dir(get_test_path("test_search_case_insensitive"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_search_case_insensitive").c_str(),
+                               "{\"name\":\"Test Case Insensitive\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create files with mixed-case names.
+  char *file1_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "WCP DID Metrics.md", &file1_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file1_id);
+
+  char *file2_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "readme.md", &file2_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file2_id);
+
+  char *file3_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "UPPER_CASE_NOTE.md", &file3_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file3_id);
+
+  // Search with lowercase pattern "did" — should match "WCP DID Metrics.md".
+  {
+    const char *query_json = R"({
+      "pattern": "did",
+      "includeFiles": true,
+      "includeFolders": false,
+      "maxResults": 100,
+      "scope": {
+        "folderPath": ".",
+        "recursive": false
+      }
+    })";
+
+    char *results = nullptr;
+    err = vxcore_search_files(ctx, notebook_id, query_json, nullptr, &results);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(results);
+
+    auto json_results = nlohmann::json::parse(results);
+    ASSERT_EQ(json_results["matchCount"].get<int>(), 1);
+    ASSERT(json_results["matches"][0]["path"].get<std::string>().find("WCP DID Metrics.md") !=
+           std::string::npos);
+
+    vxcore_string_free(results);
+  }
+
+  // Search with uppercase pattern "DID" — should also match.
+  {
+    const char *query_json = R"({
+      "pattern": "DID",
+      "includeFiles": true,
+      "includeFolders": false,
+      "maxResults": 100,
+      "scope": {
+        "folderPath": ".",
+        "recursive": false
+      }
+    })";
+
+    char *results = nullptr;
+    err = vxcore_search_files(ctx, notebook_id, query_json, nullptr, &results);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(results);
+
+    auto json_results = nlohmann::json::parse(results);
+    ASSERT_EQ(json_results["matchCount"].get<int>(), 1);
+    ASSERT(json_results["matches"][0]["path"].get<std::string>().find("WCP DID Metrics.md") !=
+           std::string::npos);
+
+    vxcore_string_free(results);
+  }
+
+  // Search with wildcard pattern "*.MD" (uppercase extension) — should match all .md files.
+  {
+    const char *query_json = R"({
+      "pattern": "*.MD",
+      "includeFiles": true,
+      "includeFolders": false,
+      "maxResults": 100,
+      "scope": {
+        "folderPath": ".",
+        "recursive": false
+      }
+    })";
+
+    char *results = nullptr;
+    err = vxcore_search_files(ctx, notebook_id, query_json, nullptr, &results);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(results);
+
+    auto json_results = nlohmann::json::parse(results);
+    ASSERT_EQ(json_results["matchCount"].get<int>(), 3);
+
+    vxcore_string_free(results);
+  }
+
+  // File pattern filter should also be case-insensitive.
+  {
+    const char *query_json = R"({
+      "pattern": "*",
+      "includeFiles": true,
+      "includeFolders": false,
+      "maxResults": 100,
+      "scope": {
+        "folderPath": ".",
+        "recursive": false,
+        "filePatterns": ["*.MD"]
+      }
+    })";
+
+    char *results = nullptr;
+    err = vxcore_search_files(ctx, notebook_id, query_json, nullptr, &results);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(results);
+
+    auto json_results = nlohmann::json::parse(results);
+    ASSERT_EQ(json_results["matchCount"].get<int>(), 3);
+
+    vxcore_string_free(results);
+  }
+
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_search_case_insensitive"));
+  std::cout << "  \xE2\x9C\x93 test_search_files_case_insensitive passed" << std::endl;
+  return 0;
+}
+
+int test_search_files_exclude_patterns_case_insensitive() {
+  std::cout << "  Running test_search_files_exclude_patterns_case_insensitive..." << std::endl;
+  cleanup_test_dir(get_test_path("test_search_exclude_ci"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_search_exclude_ci").c_str(),
+                               "{\"name\":\"Test Exclude CI\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create a file at root level.
+  char *file1_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "keep.md", &file1_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file1_id);
+
+  // Create a folder with mixed-case name.
+  char *folder_id = nullptr;
+  err = vxcore_folder_create(ctx, notebook_id, ".", "Node_Modules", &folder_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(folder_id);
+
+  // Create a file inside the mixed-case folder.
+  char *file2_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, "Node_Modules", "lib.js", &file2_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file2_id);
+
+  // Exclude with all-lowercase "node_modules" — should still exclude "Node_Modules".
+  const char *query_json = R"({
+    "pattern": "*",
+    "includeFiles": true,
+    "includeFolders": false,
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": true,
+      "excludePatterns": ["node_modules"]
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_files(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 1);
+
+  for (const auto &item : json_results["matches"]) {
+    std::string path = item["path"].get<std::string>();
+    // The excluded folder's file must not appear.
+    ASSERT(path.find("Node_Modules") == std::string::npos);
+    ASSERT(path.find("node_modules") == std::string::npos);
+  }
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_search_exclude_ci"));
+  std::cout << "  \xE2\x9C\x93 test_search_files_exclude_patterns_case_insensitive passed"
+            << std::endl;
+  return 0;
+}
+
+int test_search_by_tags_with_file_patterns_case_insensitive() {
+  std::cout << "  Running test_search_by_tags_with_file_patterns_case_insensitive..." << std::endl;
+  cleanup_test_dir(get_test_path("test_tags_fp_ci"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("test_tags_fp_ci").c_str(),
+                               "{\"name\":\"Test Tags FP CI\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create files with lowercase extensions.
+  char *file1_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "notes.md", &file1_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file1_id);
+
+  char *file2_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "data.txt", &file2_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file2_id);
+
+  char *file3_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "draft.md", &file3_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file3_id);
+
+  // Tag all three files.
+  err = vxcore_tag_create(ctx, notebook_id, "review");
+  ASSERT_EQ(err, VXCORE_OK);
+  err = vxcore_file_tag(ctx, notebook_id, "notes.md", "review");
+  ASSERT_EQ(err, VXCORE_OK);
+  err = vxcore_file_tag(ctx, notebook_id, "data.txt", "review");
+  ASSERT_EQ(err, VXCORE_OK);
+  err = vxcore_file_tag(ctx, notebook_id, "draft.md", "review");
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Use uppercase filePatterns "*.MD" — should still match lowercase .md files.
+  const char *query_json = R"({
+    "tags": ["review"],
+    "operator": "AND",
+    "maxResults": 100,
+    "scope": {
+      "folderPath": ".",
+      "recursive": false,
+      "filePatterns": ["*.MD"]
+    }
+  })";
+
+  char *results = nullptr;
+  err = vxcore_search_by_tags(ctx, notebook_id, query_json, nullptr, &results);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(results);
+
+  auto json_results = nlohmann::json::parse(results);
+  // Only notes.md and draft.md should match, not data.txt.
+  ASSERT_EQ(json_results["matchCount"].get<int>(), 2);
+
+  for (const auto &item : json_results["matches"]) {
+    std::string path = item["path"].get<std::string>();
+    ASSERT(path.find(".md") != std::string::npos);
+  }
+
+  vxcore_string_free(results);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_tags_fp_ci"));
+  std::cout << "  \xE2\x9C\x93 test_search_by_tags_with_file_patterns_case_insensitive passed"
+            << std::endl;
+  return 0;
+}
+
+int test_search_files_path_matching_case_insensitive() {
+  std::cout << "  Running test_search_files_path_matching_case_insensitive..." << std::endl;
+  cleanup_test_dir(get_test_path("test_search_path_ci"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err =
+      vxcore_notebook_create(ctx, get_test_path("test_search_path_ci").c_str(),
+                             "{\"name\":\"Test Path CI\"}", VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Create a folder with title-case name.
+  char *folder_id = nullptr;
+  err = vxcore_folder_create(ctx, notebook_id, ".", "Reports", &folder_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(folder_id);
+
+  // Create a file inside it whose basename does NOT contain "reports".
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, "Reports", "summary.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file_id);
+
+  // Search with lowercase "reports" — should match via path even though basename is "summary.md".
+  {
+    const char *query_json = R"({
+      "pattern": "reports",
+      "includeFiles": true,
+      "includeFolders": true,
+      "maxResults": 100,
+      "scope": {
+        "folderPath": ".",
+        "recursive": true
+      }
+    })";
+
+    char *results = nullptr;
+    err = vxcore_search_files(ctx, notebook_id, query_json, nullptr, &results);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(results);
+
+    auto json_results = nlohmann::json::parse(results);
+    // Should find at least the "Reports" folder itself and "Reports/summary.md" via path match.
+    ASSERT(json_results["matchCount"].get<int>() >= 2);
+
+    bool found_folder = false;
+    bool found_file = false;
+    for (const auto &item : json_results["matches"]) {
+      std::string path = item["path"].get<std::string>();
+      if (item.contains("type") && item["type"].get<std::string>() == "folder") {
+        found_folder = true;
+      }
+      if (path.find("summary.md") != std::string::npos) {
+        found_file = true;
+      }
+    }
+    ASSERT(found_folder);
+    ASSERT(found_file);
+
+    vxcore_string_free(results);
+  }
+
+  // Search with all-uppercase "REPORTS" — same expectation.
+  {
+    const char *query_json = R"({
+      "pattern": "REPORTS",
+      "includeFiles": true,
+      "includeFolders": true,
+      "maxResults": 100,
+      "scope": {
+        "folderPath": ".",
+        "recursive": true
+      }
+    })";
+
+    char *results = nullptr;
+    err = vxcore_search_files(ctx, notebook_id, query_json, nullptr, &results);
+    ASSERT_EQ(err, VXCORE_OK);
+    ASSERT_NOT_NULL(results);
+
+    auto json_results = nlohmann::json::parse(results);
+    ASSERT(json_results["matchCount"].get<int>() >= 2);
+
+    bool found_folder = false;
+    bool found_file = false;
+    for (const auto &item : json_results["matches"]) {
+      std::string path = item["path"].get<std::string>();
+      if (item.contains("type") && item["type"].get<std::string>() == "folder") {
+        found_folder = true;
+      }
+      if (path.find("summary.md") != std::string::npos) {
+        found_file = true;
+      }
+    }
+    ASSERT(found_folder);
+    ASSERT(found_file);
+
+    vxcore_string_free(results);
+  }
+
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_search_path_ci"));
+  std::cout << "  \xE2\x9C\x93 test_search_files_path_matching_case_insensitive passed"
+            << std::endl;
+  return 0;
+}
+
 int main() {
   vxcore_set_test_mode(1);
   vxcore_clear_test_directory();
@@ -2864,6 +3257,9 @@ int main() {
   RUN_TEST(test_search_files_max_results);
   RUN_TEST(test_search_files_with_file_patterns);
   RUN_TEST(test_search_files_file_patterns_recursive);
+  RUN_TEST(test_search_files_case_insensitive);
+  RUN_TEST(test_search_files_exclude_patterns_case_insensitive);
+  RUN_TEST(test_search_files_path_matching_case_insensitive);
 
   RUN_TEST(test_search_by_tags_single_tag);
   RUN_TEST(test_search_by_tags_and_operator);
@@ -2873,6 +3269,7 @@ int main() {
   RUN_TEST(test_search_by_tags_max_results);
   RUN_TEST(test_search_by_tags_empty_results);
   RUN_TEST(test_search_by_tags_with_file_patterns);
+  RUN_TEST(test_search_by_tags_with_file_patterns_case_insensitive);
   RUN_TEST(test_search_file_and_exclude_patterns);
 
   RUN_TEST(test_search_content_exclude_patterns);

@@ -107,6 +107,10 @@ bool MatchesPattern(const std::string &text, const std::string &pattern) {
   return pattern_idx == pattern.size();
 }
 
+bool MatchesPatternCaseInsensitive(const std::string &text, const std::string &pattern) {
+  return MatchesPattern(ToLowerString(text), ToLowerString(pattern));
+}
+
 bool MatchesPatterns(const std::string &text, const std::vector<std::string> &patterns) {
   for (const auto &pattern : patterns) {
     if (MatchesPattern(text, pattern)) {

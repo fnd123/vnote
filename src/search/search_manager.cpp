@@ -42,12 +42,28 @@ VxCoreError SearchManager::SearchFiles(const std::string &query_json,
                                        const std::string &input_files_json,
                                        std::string &out_results_json) {
   try {
+    VXCORE_LOG_DEBUG("SearchManager::SearchFiles: query_json=%s", query_json.c_str());
+    VXCORE_LOG_DEBUG("SearchManager::SearchFiles: input_files_json=%s",
+                     input_files_json.empty() ? "(empty)" : input_files_json.c_str());
+
     auto query = SearchFilesQuery::FromJson(notebook_, nlohmann::json::parse(query_json));
+    VXCORE_LOG_DEBUG(
+        "SearchManager::SearchFiles: parsed pattern='%s' includeFiles=%d "
+        "includeFolders=%d maxResults=%d",
+        query.pattern.c_str(), query.include_files, query.include_folders, query.max_results);
+
     auto filtered_files = FetchFilesToSearch(query.scope, input_files_json, true);
+    VXCORE_LOG_DEBUG("SearchManager::SearchFiles: filtered_files count=%zu", filtered_files.size());
+    for (size_t i = 0; i < filtered_files.size() && i < 20; ++i) {
+      VXCORE_LOG_DEBUG("SearchManager::SearchFiles: file[%zu] name='%s' path='%s' is_folder=%d", i,
+                       filtered_files[i].name.c_str(), filtered_files[i].path.c_str(),
+                       filtered_files[i].is_folder);
+    }
 
     auto matched_files =
         GetMatchedFilesByPattern(std::move(filtered_files), query.pattern, query.include_files,
                                  query.include_folders, query.max_results);
+    VXCORE_LOG_DEBUG("SearchManager::SearchFiles: matched_files count=%zu", matched_files.size());
 
     out_results_json = SerializeFileResults(matched_files, query.max_results);
     return VXCORE_OK;
@@ -172,13 +188,15 @@ std::vector<SearchFileInfo> SearchManager::GetMatchedFilesByPattern(
   std::vector<SearchFileInfo> name_matches;
   std::vector<SearchFileInfo> path_matches;
 
+  auto lower_pattern = ToLowerString(pattern);
+
   for (auto &file : filtered_files) {
     if ((file.is_folder && !include_folders) || (!file.is_folder && !include_files)) {
       continue;
     }
 
-    bool name_match = MatchesPattern(file.name, pattern);
-    bool path_match = !name_match && MatchesPattern(file.path, pattern);
+    bool name_match = MatchesPattern(ToLowerString(file.name), lower_pattern);
+    bool path_match = !name_match && MatchesPattern(ToLowerString(file.path), lower_pattern);
 
     if (name_match) {
       name_matches.push_back(std::move(file));
@@ -247,26 +265,49 @@ std::vector<SearchFileInfo> SearchManager::GetAllFiles(const SearchScope &scope,
                                                        const SearchInputFiles *input_files,
                                                        bool include_folders) {
   std::vector<SearchFileInfo> result;
+  std::vector<std::string> lower_path_patterns;
+  lower_path_patterns.reserve(scope.path_patterns.size());
+  for (const auto &pattern : scope.path_patterns) {
+    lower_path_patterns.push_back(ToLowerString(pattern));
+  }
+
+  std::vector<std::string> lower_exclude_path_patterns;
+  lower_exclude_path_patterns.reserve(scope.exclude_path_patterns.size());
+  for (const auto &pattern : scope.exclude_path_patterns) {
+    lower_exclude_path_patterns.push_back(ToLowerString(pattern));
+  }
 
   if (input_files && (!input_files->files.empty() || !input_files->folders.empty())) {
+    VXCORE_LOG_DEBUG("SearchManager::GetAllFiles: input_files provided - files=%zu folders=%zu",
+                     input_files->files.size(), input_files->folders.size());
     for (const auto &file_path : input_files->files) {
       const FileRecord *record = nullptr;
-      if (notebook_->GetFolderManager()->GetFileInfo(file_path, &record) == VXCORE_OK) {
+      VxCoreError err = notebook_->GetFolderManager()->GetFileInfo(file_path, &record);
+      if (err == VXCORE_OK) {
         assert(record);
+        VXCORE_LOG_DEBUG("SearchManager::GetAllFiles: GetFileInfo OK for '%s' name='%s'",
+                         file_path.c_str(), record->name.c_str());
         result.push_back(SearchFileInfo::FromFileRecord(file_path, *record));
+      } else {
+        VXCORE_LOG_WARN("SearchManager::GetAllFiles: GetFileInfo FAILED for '%s' error=%d",
+                        file_path.c_str(), err);
       }
     }
 
     for (const auto &folder_path : input_files->folders) {
-      CollectFilesInFolder(folder_path, scope.recursive, scope.path_patterns,
-                           scope.exclude_path_patterns, include_folders, result);
+      VXCORE_LOG_DEBUG("SearchManager::GetAllFiles: collecting folder '%s'", folder_path.c_str());
+      CollectFilesInFolder(folder_path, scope.recursive, lower_path_patterns,
+                           lower_exclude_path_patterns, include_folders, result);
     }
   } else {
     const std::string start_path = scope.folder_path.empty() ? "." : scope.folder_path;
-    CollectFilesInFolder(start_path, scope.recursive, scope.path_patterns,
-                         scope.exclude_path_patterns, include_folders, result);
+    VXCORE_LOG_DEBUG("SearchManager::GetAllFiles: no input_files, scanning from '%s'",
+                     start_path.c_str());
+    CollectFilesInFolder(start_path, scope.recursive, lower_path_patterns,
+                         lower_exclude_path_patterns, include_folders, result);
   }
 
+  VXCORE_LOG_DEBUG("SearchManager::GetAllFiles: total files collected=%zu", result.size());
   return result;
 }
 
@@ -312,12 +353,13 @@ std::vector<SearchFileInfo> SearchManager::FilterFilesByTagsAndDate(
   return result;
 }
 
-void SearchManager::CollectFilesInFolder(const std::string &folder_path, bool recursive,
-                                         const std::vector<std::string> &path_patterns,
-                                         const std::vector<std::string> &exclude_path_patterns,
-                                         bool include_folders,
-                                         std::vector<SearchFileInfo> &out_files) {
-  if (MatchesPatterns(folder_path, exclude_path_patterns)) {
+void SearchManager::CollectFilesInFolder(
+    const std::string &folder_path, bool recursive,
+    const std::vector<std::string> &lower_path_patterns,
+    const std::vector<std::string> &lower_exclude_path_patterns, bool include_folders,
+    std::vector<SearchFileInfo> &out_files) {
+  const auto lower_folder_path = ToLowerString(folder_path);
+  if (MatchesPatterns(lower_folder_path, lower_exclude_path_patterns)) {
     return;
   }
 
@@ -329,10 +371,11 @@ void SearchManager::CollectFilesInFolder(const std::string &folder_path, bool re
 
   for (const auto &file : contents.files) {
     const auto file_path = ConcatenatePaths(folder_path, file.name);
-    if (MatchesPatterns(file_path, exclude_path_patterns)) {
+    const auto lower_file_path = ToLowerString(file_path);
+    if (MatchesPatterns(lower_file_path, lower_exclude_path_patterns)) {
       continue;
     }
-    if (!path_patterns.empty() && !MatchesPatterns(file_path, path_patterns)) {
+    if (!lower_path_patterns.empty() && !MatchesPatterns(lower_file_path, lower_path_patterns)) {
       continue;
     }
     out_files.push_back(SearchFileInfo::FromFileRecord(file_path, file));
@@ -340,8 +383,9 @@ void SearchManager::CollectFilesInFolder(const std::string &folder_path, bool re
 
   for (const auto &folder : contents.folders) {
     std::string subfolder_path = ConcatenatePaths(folder_path, folder.name);
+    const auto lower_subfolder_path = ToLowerString(subfolder_path);
 
-    if (MatchesPatterns(subfolder_path, exclude_path_patterns)) {
+    if (MatchesPatterns(lower_subfolder_path, lower_exclude_path_patterns)) {
       continue;
     }
 
@@ -350,8 +394,8 @@ void SearchManager::CollectFilesInFolder(const std::string &folder_path, bool re
     }
 
     if (recursive) {
-      CollectFilesInFolder(subfolder_path, recursive, path_patterns, exclude_path_patterns,
-                           include_folders, out_files);
+      CollectFilesInFolder(subfolder_path, recursive, lower_path_patterns,
+                           lower_exclude_path_patterns, include_folders, out_files);
     }
   }
 }
@@ -397,9 +441,22 @@ std::vector<SearchFileInfo> SearchManager::FetchFilesToSearch(const SearchScope 
   if (!input_files_json.empty()) {
     auto input_json = nlohmann::json::parse(input_files_json);
     input_files = SearchInputFiles::FromJson(notebook_, input_json);
+    VXCORE_LOG_DEBUG(
+        "SearchManager::FetchFilesToSearch: parsed input_files - files=%zu folders=%zu",
+        input_files.files.size(), input_files.folders.size());
+    for (size_t i = 0; i < input_files.files.size() && i < 20; ++i) {
+      VXCORE_LOG_DEBUG("SearchManager::FetchFilesToSearch: input file[%zu]='%s'", i,
+                       input_files.files[i].c_str());
+    }
+  } else {
+    VXCORE_LOG_DEBUG("SearchManager::FetchFilesToSearch: no input_files_json provided");
   }
   auto all_files = GetAllFiles(scope, &input_files, include_folders);
-  return FilterFilesByTagsAndDate(std::move(all_files), scope);
+  VXCORE_LOG_DEBUG("SearchManager::FetchFilesToSearch: all_files=%zu before tag/date filter",
+                   all_files.size());
+  auto result = FilterFilesByTagsAndDate(std::move(all_files), scope);
+  VXCORE_LOG_DEBUG("SearchManager::FetchFilesToSearch: after filter=%zu", result.size());
+  return result;
 }
 
 }  // namespace vxcore

@@ -68,6 +68,18 @@ ctest --test-dir build -C Debug -V
 - **C++ struct members**: Use `snake_case` (e.g., `created_utc`, `modified_utc`, `assets_folder`)
 - **Rationale**: User-facing files (config.json, session.json) follow JavaScript conventions
 
+> **⚠ JSON Key Mismatch Warning**
+>
+> When sending or receiving JSON to/from vxcore, you **must** use the exact camelCase keys defined in the corresponding `FromJson()` / `ToJson()` methods. Do **not** invent similar-sounding names.
+>
+> **Real-world example**: Qt code sent `pathPatterns` but vxcore parses `filePatterns` — the field was silently ignored and search filters stopped working.
+>
+> Rules:
+> 1. Before writing or changing any JSON key on the Qt/controller side, open the relevant vxcore `FromJson()` / `ToJson()` source and verify the exact key string.
+> 2. Never assume a key name from context; always confirm against the parser code.
+> 3. When renaming a JSON key in vxcore, update **all** callers (Qt services, CLI, tests) in the same change.
+> 4. Update tests alongside any JSON contract change to catch mismatches at build time.
+
 ### Error Handling
 
 - Return `VxCoreError` codes from C API functions
