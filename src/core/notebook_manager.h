@@ -39,6 +39,12 @@ class NotebookManager {
   VxCoreError ResolvePathToNotebook(const std::string &absolute_path, std::string &out_notebook_id,
                                     std::string &out_relative_path);
 
+  // Resolve a node UUID to its containing notebook and relative path.
+  // Searches all open notebooks' metadata stores for the given node ID.
+  // Returns VXCORE_ERR_NOT_FOUND if no open notebook contains a node with this ID.
+  VxCoreError ResolveNodeById(const std::string &node_id, std::string &out_notebook_id,
+                              std::string &out_relative_path);
+
  private:
   void LoadOpenNotebooks();
   Notebook *FindNotebookByRootFolder(const std::string &root_folder);

@@ -252,6 +252,15 @@ VXCORE_API VxCoreError vxcore_node_get_path_by_id(VxCoreContextHandle context,
                                                   const char *notebook_id, const char *node_id,
                                                   char **out_path);
 
+// Resolve a node UUID to its containing notebook across all open notebooks.
+// node_id: The UUID of the node (file or folder)
+// out_notebook_id: receives the notebook ID (caller must free with vxcore_string_free)
+// out_relative_path: receives the relative path within notebook (caller must free with
+// vxcore_string_free) Returns VXCORE_ERR_NOT_FOUND if no open notebook contains a node with this
+// ID.
+VXCORE_API VxCoreError vxcore_node_resolve_by_id(VxCoreContextHandle context, const char *node_id,
+                                                 char **out_notebook_id, char **out_relative_path);
+
 // ============ File Type Operations ============
 
 // Returns JSON array of all file types.

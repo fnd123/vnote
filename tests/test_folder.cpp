@@ -3459,6 +3459,87 @@ int test_node_get_path_by_id() {
   return 0;
 }
 
+int test_node_resolve_by_id() {
+  std::cout << "  Running test_node_resolve_by_id..." << std::endl;
+  cleanup_test_dir(get_test_path("test_node_resolve_nb"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err =
+      vxcore_notebook_create(ctx, get_test_path("test_node_resolve_nb").c_str(),
+                             "{\"name\":\"Resolve Test\"}", VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  std::string nb_id(notebook_id);
+  vxcore_string_free(notebook_id);
+
+  // Create a folder
+  char *folder_id = nullptr;
+  err = vxcore_folder_create(ctx, nb_id.c_str(), ".", "docs", &folder_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  std::string docs_id(folder_id);
+  vxcore_string_free(folder_id);
+
+  // Create a file in the folder
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, nb_id.c_str(), "docs", "readme.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  std::string readme_id(file_id);
+  vxcore_string_free(file_id);
+
+  // === Test 1: Resolve file UUID ===
+  char *out_nb = nullptr;
+  char *out_path = nullptr;
+  err = vxcore_node_resolve_by_id(ctx, readme_id.c_str(), &out_nb, &out_path);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(out_nb);
+  ASSERT_NOT_NULL(out_path);
+  ASSERT_EQ(std::string(out_nb), nb_id);
+  ASSERT_EQ(std::string(out_path), std::string("docs/readme.md"));
+  vxcore_string_free(out_nb);
+  vxcore_string_free(out_path);
+
+  // === Test 2: Resolve folder UUID ===
+  out_nb = nullptr;
+  out_path = nullptr;
+  err = vxcore_node_resolve_by_id(ctx, docs_id.c_str(), &out_nb, &out_path);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(out_nb);
+  ASSERT_NOT_NULL(out_path);
+  ASSERT_EQ(std::string(out_nb), nb_id);
+  ASSERT_EQ(std::string(out_path), std::string("docs"));
+  vxcore_string_free(out_nb);
+  vxcore_string_free(out_path);
+
+  // === Test 3: Not found ===
+  out_nb = nullptr;
+  out_path = nullptr;
+  err = vxcore_node_resolve_by_id(ctx, "nonexistent-uuid", &out_nb, &out_path);
+  ASSERT_EQ(err, VXCORE_ERR_NOT_FOUND);
+  ASSERT_NULL(out_nb);
+  ASSERT_NULL(out_path);
+
+  // === Test 4: Null pointer args ===
+  err = vxcore_node_resolve_by_id(nullptr, readme_id.c_str(), &out_nb, &out_path);
+  ASSERT_EQ(err, VXCORE_ERR_NULL_POINTER);
+
+  err = vxcore_node_resolve_by_id(ctx, nullptr, &out_nb, &out_path);
+  ASSERT_EQ(err, VXCORE_ERR_NULL_POINTER);
+
+  err = vxcore_node_resolve_by_id(ctx, readme_id.c_str(), nullptr, &out_path);
+  ASSERT_EQ(err, VXCORE_ERR_NULL_POINTER);
+
+  err = vxcore_node_resolve_by_id(ctx, readme_id.c_str(), &out_nb, nullptr);
+  ASSERT_EQ(err, VXCORE_ERR_NULL_POINTER);
+
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_node_resolve_nb"));
+  std::cout << "  ✓ test_node_resolve_by_id passed" << std::endl;
+  return 0;
+}
+
 // ============================================================================
 // External nodes (list unindexed files/folders) tests
 // ============================================================================
@@ -4151,6 +4232,7 @@ int main() {
 
   // Node path lookup tests
   RUN_TEST(test_node_get_path_by_id);
+  RUN_TEST(test_node_resolve_by_id);
   // File import tests
   RUN_TEST(test_file_import_basic);
   RUN_TEST(test_file_import_name_conflict);

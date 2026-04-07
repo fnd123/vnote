@@ -423,6 +423,47 @@ VXCORE_API VxCoreError vxcore_node_get_path_by_id(VxCoreContextHandle context,
   }
 }
 
+VXCORE_API VxCoreError vxcore_node_resolve_by_id(VxCoreContextHandle context, const char *node_id,
+                                                 char **out_notebook_id, char **out_relative_path) {
+  if (!context || !node_id || !out_notebook_id || !out_relative_path) {
+    return VXCORE_ERR_NULL_POINTER;
+  }
+
+  *out_notebook_id = nullptr;
+  *out_relative_path = nullptr;
+
+  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
+
+  try {
+    std::string notebook_id;
+    std::string relative_path;
+    VxCoreError err = ctx->notebook_manager->ResolveNodeById(node_id, notebook_id, relative_path);
+
+    if (err != VXCORE_OK) {
+      ctx->last_error = "Node not found in any open notebook";
+      return err;
+    }
+
+    char *id_copy = vxcore_strdup(notebook_id.c_str());
+    if (!id_copy) {
+      return VXCORE_ERR_OUT_OF_MEMORY;
+    }
+
+    char *path_copy = vxcore_strdup(relative_path.c_str());
+    if (!path_copy) {
+      free(id_copy);
+      return VXCORE_ERR_OUT_OF_MEMORY;
+    }
+
+    *out_notebook_id = id_copy;
+    *out_relative_path = path_copy;
+    return VXCORE_OK;
+  } catch (...) {
+    ctx->last_error = "Unknown error resolving node by ID";
+    return VXCORE_ERR_UNKNOWN;
+  }
+}
+
 VXCORE_API VxCoreError vxcore_folder_get_available_name(VxCoreContextHandle context,
                                                         const char *notebook_id,
                                                         const char *folder_path,

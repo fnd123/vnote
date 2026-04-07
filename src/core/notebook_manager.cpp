@@ -5,6 +5,7 @@
 
 #include "bundled_notebook.h"
 #include "config_manager.h"
+#include "metadata_store.h"
 #include "raw_notebook.h"
 #include "utils/file_utils.h"
 #include "utils/logger.h"
@@ -189,8 +190,9 @@ VxCoreError NotebookManager::CloseNotebook(const std::string &notebook_id) {
 
   // Remove notebook record from session config
   auto &session_config = config_manager_->GetSessionConfig();
-  auto rec_it = std::find_if(session_config.notebooks.begin(), session_config.notebooks.end(),
-                             [&notebook_id](const NotebookRecord &r) { return r.id == notebook_id; });
+  auto rec_it =
+      std::find_if(session_config.notebooks.begin(), session_config.notebooks.end(),
+                   [&notebook_id](const NotebookRecord &r) { return r.id == notebook_id; });
   if (rec_it != session_config.notebooks.end()) {
     session_config.notebooks.erase(rec_it);
   }
@@ -372,6 +374,29 @@ VxCoreError NotebookManager::ResolvePathToNotebook(const std::string &absolute_p
   }
 
   VXCORE_LOG_DEBUG("Path %s not found in any open notebook", clean_path.c_str());
+  return VXCORE_ERR_NOT_FOUND;
+}
+
+VxCoreError NotebookManager::ResolveNodeById(const std::string &node_id,
+                                             std::string &out_notebook_id,
+                                             std::string &out_relative_path) {
+  for (const auto &pair : notebooks_) {
+    auto *store = pair.second->GetMetadataStore();
+    if (!store) {
+      continue;
+    }
+
+    std::string path = store->GetNodePathById(node_id);
+    if (!path.empty()) {
+      out_notebook_id = pair.first;
+      out_relative_path = path;
+      VXCORE_LOG_DEBUG("Resolved node %s to notebook %s, relative path %s", node_id.c_str(),
+                       out_notebook_id.c_str(), out_relative_path.c_str());
+      return VXCORE_OK;
+    }
+  }
+
+  VXCORE_LOG_DEBUG("Node %s not found in any open notebook", node_id.c_str());
   return VXCORE_ERR_NOT_FOUND;
 }
 
