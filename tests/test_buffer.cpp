@@ -6,6 +6,7 @@
 #include <string>
 #include <thread>
 
+#include "core/context.h"
 #include "test_utils.h"
 #include "vxcore/vxcore.h"
 
@@ -2697,6 +2698,108 @@ int test_buffer_open_auto_resolve_unindexed_file() {
   return 0;
 }
 
+int test_buffer_open_by_node_id() {
+  std::cout << "  Running test_buffer_open_by_node_id..." << std::endl;
+  cleanup_test_dir(get_test_path("buf_open_by_node_id"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err = vxcore_notebook_create(ctx, get_test_path("buf_open_by_node_id").c_str(),
+                               "{\"name\":\"Open By Node ID Test\"}", VXCORE_NOTEBOOK_BUNDLED,
+                               &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "node_id_test.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *folder_id = nullptr;
+  err = vxcore_folder_create(ctx, notebook_id, ".", "folder_node", &folder_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  // Happy path.
+  char *buffer_id = nullptr;
+  err = vxcore_buffer_open_by_node_id(ctx, file_id, &buffer_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(buffer_id);
+
+  char *buffer_json = nullptr;
+  err = vxcore_buffer_get(ctx, buffer_id, &buffer_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(buffer_json);
+
+  nlohmann::json buffer_data = nlohmann::json::parse(buffer_json);
+  ASSERT_EQ(buffer_data["notebookId"].get<std::string>(), std::string(notebook_id));
+  ASSERT_EQ(buffer_data["filePath"].get<std::string>(), std::string("node_id_test.md"));
+
+  // Not found.
+  char *missing_buffer_id = nullptr;
+  err = vxcore_buffer_open_by_node_id(ctx, "nonexistent-uuid", &missing_buffer_id);
+  ASSERT_EQ(err, VXCORE_ERR_NOT_FOUND);
+  ASSERT_NULL(missing_buffer_id);
+
+  // Folder UUID should not open as a buffer.
+  err = vxcore_buffer_open_by_node_id(ctx, folder_id, &missing_buffer_id);
+  ASSERT_EQ(err, VXCORE_ERR_NOT_FOUND);
+  ASSERT_NULL(missing_buffer_id);
+
+  // Null pointer args.
+  err = vxcore_buffer_open_by_node_id(nullptr, file_id, &missing_buffer_id);
+  ASSERT_EQ(err, VXCORE_ERR_NULL_POINTER);
+
+  err = vxcore_buffer_open_by_node_id(ctx, nullptr, &missing_buffer_id);
+  ASSERT_EQ(err, VXCORE_ERR_NULL_POINTER);
+
+  err = vxcore_buffer_open_by_node_id(ctx, file_id, nullptr);
+  ASSERT_EQ(err, VXCORE_ERR_NULL_POINTER);
+
+  // Dedup.
+  char *buffer_id2 = nullptr;
+  err = vxcore_buffer_open_by_node_id(ctx, file_id, &buffer_id2);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(buffer_id2);
+  ASSERT_EQ(std::string(buffer_id), std::string(buffer_id2));
+
+  // Not initialized.
+  VxCoreContextHandle ctx_no_notebook = nullptr;
+  err = vxcore_context_create(nullptr, &ctx_no_notebook);
+  ASSERT_EQ(err, VXCORE_OK);
+  auto *vctx_no_notebook = reinterpret_cast<vxcore::VxCoreContext *>(ctx_no_notebook);
+  vctx_no_notebook->notebook_manager.reset();
+
+  char *uninitialized_buffer_id = reinterpret_cast<char *>(1);
+  err = vxcore_buffer_open_by_node_id(ctx_no_notebook, file_id, &uninitialized_buffer_id);
+  ASSERT_EQ(err, VXCORE_ERR_NOT_INITIALIZED);
+  ASSERT_NULL(uninitialized_buffer_id);
+  vxcore_context_destroy(ctx_no_notebook);
+
+  VxCoreContextHandle ctx_no_buffer = nullptr;
+  err = vxcore_context_create(nullptr, &ctx_no_buffer);
+  ASSERT_EQ(err, VXCORE_OK);
+  auto *vctx_no_buffer = reinterpret_cast<vxcore::VxCoreContext *>(ctx_no_buffer);
+  vctx_no_buffer->buffer_manager.reset();
+
+  uninitialized_buffer_id = reinterpret_cast<char *>(1);
+  err = vxcore_buffer_open_by_node_id(ctx_no_buffer, file_id, &uninitialized_buffer_id);
+  ASSERT_EQ(err, VXCORE_ERR_NOT_INITIALIZED);
+  ASSERT_NULL(uninitialized_buffer_id);
+  vxcore_context_destroy(ctx_no_buffer);
+
+  vxcore_string_free(buffer_id2);
+  vxcore_string_free(buffer_json);
+  vxcore_string_free(buffer_id);
+  vxcore_string_free(file_id);
+  vxcore_string_free(folder_id);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("buf_open_by_node_id"));
+  std::cout << "  ✓ test_buffer_open_by_node_id passed" << std::endl;
+  return 0;
+}
+
 int main() {
   std::cout << "Running buffer tests..." << std::endl;
 
@@ -2766,6 +2869,7 @@ int main() {
   RUN_TEST(test_buffer_open_auto_resolve_dedup);
   RUN_TEST(test_buffer_open_auto_resolve_not_in_notebook);
   RUN_TEST(test_buffer_open_auto_resolve_unindexed_file);
+  RUN_TEST(test_buffer_open_by_node_id);
 
   std::cout << "All buffer tests passed!" << std::endl;
   return 0;

@@ -7,6 +7,9 @@
 #include "core/buffer_manager.h"
 #include "core/buffer_provider.h"
 #include "core/context.h"
+#include "core/metadata_store.h"
+#include "core/notebook.h"
+#include "core/notebook_manager.h"
 #include "utils/base64.h"
 #include "vxcore/vxcore.h"
 
@@ -25,6 +28,55 @@ VXCORE_API VxCoreError vxcore_buffer_open(VxCoreContextHandle context, const cha
   try {
     std::string nb_id = notebook_id ? notebook_id : "";
     std::string id = ctx->buffer_manager->OpenBuffer(nb_id, file_path);
+    *out_id = vxcore_strdup(id.c_str());
+    vxcore::PersistSession(ctx);
+    return VXCORE_OK;
+  } catch (const std::exception &e) {
+    ctx->last_error = std::string("Exception: ") + e.what();
+    return VXCORE_ERR_UNKNOWN;
+  }
+}
+
+VXCORE_API VxCoreError vxcore_buffer_open_by_node_id(VxCoreContextHandle context,
+                                                     const char *node_id, char **out_id) {
+  if (!context || !node_id || !out_id) {
+    return VXCORE_ERR_NULL_POINTER;
+  }
+
+  *out_id = nullptr;
+
+  auto *ctx = reinterpret_cast<vxcore::VxCoreContext *>(context);
+  if (!ctx->notebook_manager || !ctx->buffer_manager) {
+    return VXCORE_ERR_NOT_INITIALIZED;
+  }
+
+  try {
+    std::string notebook_id;
+    std::string relative_path;
+    VxCoreError err = ctx->notebook_manager->ResolveNodeById(node_id, notebook_id, relative_path);
+    if (err != VXCORE_OK) {
+      ctx->last_error = "Node not found in any open notebook";
+      return err;
+    }
+
+    auto *notebook = ctx->notebook_manager->GetNotebook(notebook_id);
+    if (!notebook) {
+      ctx->last_error = "Notebook not found";
+      return VXCORE_ERR_NOT_FOUND;
+    }
+
+    auto *store = notebook->GetMetadataStore();
+    if (!store) {
+      ctx->last_error = "Notebook metadata store not initialized";
+      return VXCORE_ERR_NOT_INITIALIZED;
+    }
+
+    if (!store->GetFileByPath(relative_path)) {
+      ctx->last_error = "Node is not a file";
+      return VXCORE_ERR_NOT_FOUND;
+    }
+
+    std::string id = ctx->buffer_manager->OpenBuffer(notebook_id, relative_path);
     *out_id = vxcore_strdup(id.c_str());
     vxcore::PersistSession(ctx);
     return VXCORE_OK;
@@ -359,7 +411,7 @@ VXCORE_API VxCoreError vxcore_buffer_is_modified(VxCoreContextHandle context, co
 }
 
 VXCORE_API VxCoreError vxcore_buffer_get_revision(VxCoreContextHandle context, const char *id,
-                                                   int *out_revision) {
+                                                  int *out_revision) {
   if (!context || !id || !out_revision) {
     return VXCORE_ERR_NULL_POINTER;
   }
@@ -631,8 +683,8 @@ VXCORE_API VxCoreError vxcore_buffer_get_assets_folder(VxCoreContextHandle conte
 }
 
 VXCORE_API VxCoreError vxcore_buffer_get_resource_base_path(VxCoreContextHandle context,
-                                                             const char *buffer_id,
-                                                             char **out_path) {
+                                                            const char *buffer_id,
+                                                            char **out_path) {
   if (!context || !buffer_id || !out_path) {
     return VXCORE_ERR_NULL_POINTER;
   }

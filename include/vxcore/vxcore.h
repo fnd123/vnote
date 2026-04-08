@@ -450,6 +450,15 @@ VXCORE_API VxCoreError vxcore_workspace_set_buffer_metadata(VxCoreContextHandle 
 VXCORE_API VxCoreError vxcore_buffer_open(VxCoreContextHandle context, const char *notebook_id,
                                           const char *file_path, char **out_id);
 
+// Open a buffer by resolving a node UUID across all open notebooks.
+// Combines vxcore_node_resolve_by_id + vxcore_buffer_open in a single atomic call.
+// node_id: UUID of the file node to open.
+// Returns the buffer ID in out_id (caller must free with vxcore_string_free).
+// If the buffer is already open, returns the existing buffer ID (dedup).
+// Returns VXCORE_ERR_NOT_FOUND if no open notebook contains the UUID.
+VXCORE_API VxCoreError vxcore_buffer_open_by_node_id(VxCoreContextHandle context,
+                                                     const char *node_id, char **out_id);
+
 // Close a buffer by ID.
 VXCORE_API VxCoreError vxcore_buffer_close(VxCoreContextHandle context, const char *id);
 
