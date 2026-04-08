@@ -4047,6 +4047,129 @@ int test_folder_get_available_name_invalid_params() {
   return 0;
 }
 
+int test_node_attachments_basic() {
+  std::cout << "  Running test_node_attachments_basic..." << std::endl;
+  cleanup_test_dir(get_test_path("test_node_attachments_nb"));
+  create_directory(get_test_path("test_node_attachments_nb"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err =
+      vxcore_notebook_create(ctx, get_test_path("test_node_attachments_nb").c_str(),
+                             "{\"name\":\"Test Notebook\"}", VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "note.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file_id);
+
+  // Insert attachment via buffer API to set up metadata + filesystem.
+  char *buffer_id = nullptr;
+  err = vxcore_buffer_open(ctx, notebook_id, "note.md", &buffer_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  std::string source_path = get_test_path("test_node_attachments_nb") + "/doc.pdf";
+  write_file(source_path, "PDF content");
+
+  char *filename = nullptr;
+  err = vxcore_buffer_insert_attachment(ctx, buffer_id, source_path.c_str(), &filename);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(filename);
+  ASSERT_EQ(std::string(filename), "doc.pdf");
+
+  // Verify node-level get attachments folder.
+  char *attachments_folder = nullptr;
+  err = vxcore_node_get_attachments_folder(ctx, notebook_id, "note.md", &attachments_folder);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(attachments_folder);
+  ASSERT_TRUE(path_exists(attachments_folder));
+  ASSERT_TRUE(path_exists(std::string(attachments_folder) + "/doc.pdf"));
+
+  // Verify node-level list attachments.
+  char *attachments_json = nullptr;
+  err = vxcore_node_list_attachments(ctx, notebook_id, "note.md", &attachments_json);
+  ASSERT_EQ(err, VXCORE_OK);
+  ASSERT_NOT_NULL(attachments_json);
+  auto json = nlohmann::json::parse(attachments_json);
+  ASSERT_TRUE(json.is_array());
+  ASSERT_EQ(json.size(), 1u);
+  ASSERT_EQ(json[0].get<std::string>(), "doc.pdf");
+
+  vxcore_string_free(attachments_json);
+  vxcore_string_free(attachments_folder);
+  vxcore_string_free(filename);
+  vxcore_string_free(buffer_id);
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_node_attachments_nb"));
+  std::cout << "  ✓ test_node_attachments_basic passed" << std::endl;
+  return 0;
+}
+
+int test_node_attachments_invalid_params() {
+  std::cout << "  Running test_node_attachments_invalid_params..." << std::endl;
+  cleanup_test_dir(get_test_path("test_node_attachments_invalid_nb"));
+
+  VxCoreContextHandle ctx = nullptr;
+  VxCoreError err = vxcore_context_create(nullptr, &ctx);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *notebook_id = nullptr;
+  err =
+      vxcore_notebook_create(ctx, get_test_path("test_node_attachments_invalid_nb").c_str(),
+                             "{\"name\":\"Test Notebook\"}", VXCORE_NOTEBOOK_BUNDLED, &notebook_id);
+  ASSERT_EQ(err, VXCORE_OK);
+
+  char *file_id = nullptr;
+  err = vxcore_file_create(ctx, notebook_id, ".", "note.md", &file_id);
+  ASSERT_EQ(err, VXCORE_OK);
+  vxcore_string_free(file_id);
+
+  char *path = nullptr;
+  err = vxcore_node_get_attachments_folder(nullptr, notebook_id, "note.md", &path);
+  ASSERT_EQ(err, VXCORE_ERR_INVALID_PARAM);
+
+  err = vxcore_node_get_attachments_folder(ctx, nullptr, "note.md", &path);
+  ASSERT_EQ(err, VXCORE_ERR_INVALID_PARAM);
+
+  err = vxcore_node_get_attachments_folder(ctx, notebook_id, nullptr, &path);
+  ASSERT_EQ(err, VXCORE_ERR_INVALID_PARAM);
+
+  err = vxcore_node_get_attachments_folder(ctx, notebook_id, "note.md", nullptr);
+  ASSERT_EQ(err, VXCORE_ERR_INVALID_PARAM);
+
+  err = vxcore_node_get_attachments_folder(ctx, "non_existent_id", "note.md", &path);
+  ASSERT_EQ(err, VXCORE_ERR_NOT_FOUND);
+  ASSERT_NULL(path);
+
+  char *attachments_json = nullptr;
+  err = vxcore_node_list_attachments(nullptr, notebook_id, "note.md", &attachments_json);
+  ASSERT_EQ(err, VXCORE_ERR_INVALID_PARAM);
+
+  err = vxcore_node_list_attachments(ctx, nullptr, "note.md", &attachments_json);
+  ASSERT_EQ(err, VXCORE_ERR_INVALID_PARAM);
+
+  err = vxcore_node_list_attachments(ctx, notebook_id, nullptr, &attachments_json);
+  ASSERT_EQ(err, VXCORE_ERR_INVALID_PARAM);
+
+  err = vxcore_node_list_attachments(ctx, notebook_id, "note.md", nullptr);
+  ASSERT_EQ(err, VXCORE_ERR_INVALID_PARAM);
+
+  err = vxcore_node_list_attachments(ctx, "non_existent_id", "note.md", &attachments_json);
+  ASSERT_EQ(err, VXCORE_ERR_NOT_FOUND);
+  ASSERT_NULL(attachments_json);
+
+  vxcore_string_free(notebook_id);
+  vxcore_context_destroy(ctx);
+  cleanup_test_dir(get_test_path("test_node_attachments_invalid_nb"));
+  std::cout << "  ✓ test_node_attachments_invalid_params passed" << std::endl;
+  return 0;
+}
+
 int test_file_peek() {
   std::cout << "  Running test_file_peek..." << std::endl;
   cleanup_test_dir(get_test_path("test_file_peek_nb"));
@@ -4262,6 +4385,10 @@ int main() {
   RUN_TEST(test_folder_get_available_name_with_extension);
   RUN_TEST(test_folder_get_available_name_in_subfolder);
   RUN_TEST(test_folder_get_available_name_invalid_params);
+
+  // Node attachments tests
+  RUN_TEST(test_node_attachments_basic);
+  RUN_TEST(test_node_attachments_invalid_params);
 
   // File peek tests
   RUN_TEST(test_file_peek);

@@ -657,6 +657,25 @@ VXCORE_API VxCoreError vxcore_buffer_list_attachments(VxCoreContextHandle contex
 VXCORE_API VxCoreError vxcore_buffer_get_attachments_folder(VxCoreContextHandle context,
                                                             const char *buffer_id, char **out_path);
 
+// Get absolute path to a file node's attachments folder.
+// Creates folder lazily if it doesn't exist.
+// (Same folder as assets folder - attachments and assets share location)
+//
+// out_path: Receives absolute filesystem path.
+//           Caller must free with vxcore_string_free.
+VXCORE_API VxCoreError vxcore_node_get_attachments_folder(VxCoreContextHandle context,
+                                                          const char *notebook_id,
+                                                          const char *file_path, char **out_path);
+
+// List all attachments for a file node (from metadata, not filesystem scan).
+// Returns JSON array of filenames (not full paths).
+//
+// out_attachments_json: Receives JSON array (e.g., ["doc.pdf", "data.zip", ...])
+//                       Caller must free with vxcore_string_free.
+VXCORE_API VxCoreError vxcore_node_list_attachments(VxCoreContextHandle context,
+                                                    const char *notebook_id, const char *file_path,
+                                                    char **out_attachments_json);
+
 /* ============ Template Operations ============ */
 
 // Get the absolute path to the templates folder.
