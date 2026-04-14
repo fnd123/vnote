@@ -70,6 +70,9 @@ class RawFolderManager : public FolderManager {
   VxCoreError UnindexNode(const std::string &node_path) override;
 
   void ClearCache() override;
+
+ private:
+  mutable FileRecord cached_file_record_;
 };
 
 }  // namespace vxcore

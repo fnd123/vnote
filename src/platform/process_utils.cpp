@@ -16,7 +16,6 @@ FILE *ProcessUtils::OpenPipe(const std::string &command, const char *mode) {
 #ifdef _WIN32
   return _popen(command.c_str(), mode);
 #else
-  (void)utf8_mode;
   return popen(command.c_str(), mode);
 #endif
 }

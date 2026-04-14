@@ -5,6 +5,7 @@
 
 #include "bundled_notebook.h"
 #include "config_manager.h"
+#include "folder_manager.h"
 #include "metadata_store.h"
 #include "raw_notebook.h"
 #include "utils/file_utils.h"
@@ -149,13 +150,44 @@ VxCoreError NotebookManager::OpenNotebook(const std::string &root_folder,
     return VXCORE_ERR_NOT_FOUND;
   }
 
+  const auto local_data_folder = config_manager_->GetLocalDataPath();
+  const std::filesystem::path bundled_config_path =
+      rootPath / BundledNotebook::kMetadataFolderName / "config.json";
+
   std::unique_ptr<Notebook> notebook;
-  auto err =
-      BundledNotebook::Open(config_manager_->GetLocalDataPath(), root_folder_clean, notebook);
-  if (err != VXCORE_OK) {
-    VXCORE_LOG_ERROR("Failed to load bundled notebook: root_folder=%s, error=%d",
-                     root_folder_clean.c_str(), err);
-    return err;
+  VxCoreError err = VXCORE_OK;
+  std::error_code config_ec;
+  const bool has_bundled_config = std::filesystem::exists(bundled_config_path, config_ec);
+  if (config_ec) {
+    VXCORE_LOG_ERROR("Failed to check bundled notebook config: path=%s, error=%s",
+                     bundled_config_path.string().c_str(), config_ec.message().c_str());
+    return VXCORE_ERR_IO;
+  }
+
+  if (has_bundled_config) {
+    err = BundledNotebook::Open(local_data_folder, root_folder_clean, notebook);
+    if (err != VXCORE_OK) {
+      VXCORE_LOG_ERROR("Failed to load bundled notebook: root_folder=%s, error=%d",
+                       root_folder_clean.c_str(), err);
+      return err;
+    }
+  } else {
+    VXCORE_LOG_INFO("No bundled notebook metadata found; opening as raw folder: root_folder=%s",
+                    root_folder_clean.c_str());
+
+    NotebookConfig config;
+    config.name = rootPath.filename().string();
+    if (config.name.empty()) {
+      config.name = root_folder_clean;
+    }
+    config.description = "Plain folder notebook";
+
+    err = RawNotebook::Create(local_data_folder, root_folder_clean, &config, notebook);
+    if (err != VXCORE_OK) {
+      VXCORE_LOG_ERROR("Failed to open raw notebook: root_folder=%s, error=%d",
+                       root_folder_clean.c_str(), err);
+      return err;
+    }
   }
 
   err = UpdateNotebookRecord(*notebook);
