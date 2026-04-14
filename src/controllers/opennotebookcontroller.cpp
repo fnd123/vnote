@@ -52,7 +52,7 @@ OpenNotebookValidationResult OpenNotebookController::validateRootFolder(const QS
     QJsonArray notebooks = notebookService->listNotebooks();
     for (const auto &nb : notebooks) {
       QJsonObject nbObj = nb.toObject();
-      QString existingPath = nbObj.value("root_path").toString();
+      QString existingPath = nbObj.value("rootFolder").toString();
       if (QDir(existingPath) == QDir(rootFolderPath)) {
         QString existingName = nbObj.value("name").toString();
         result.valid = false;
@@ -85,14 +85,13 @@ OpenNotebookResult OpenNotebookController::openNotebook(const OpenNotebookInput 
   }
 
   // Open notebook via service.
-  // The vxcore layer will validate if it's a valid VNote notebook.
+  // Bundled notebooks are loaded from VNote metadata; plain folders are opened as raw notebooks.
   QString notebookId = notebookService->openNotebook(p_input.rootFolderPath.trimmed());
 
   if (notebookId.isEmpty()) {
     result.success = false;
     result.errorMessage =
-        tr("Failed to open notebook from (%1). "
-           "The folder may not be a valid VNote notebook.")
+        tr("Failed to open notebook from (%1).")
             .arg(p_input.rootFolderPath);
     return result;
   }

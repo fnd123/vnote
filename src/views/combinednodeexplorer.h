@@ -5,6 +5,8 @@
 
 #include <QScopedPointer>
 
+#include <widgets/navigationmodeviewwrapper.h>
+
 namespace vnotex {
 
 class NotebookNodeModel;
@@ -13,7 +15,6 @@ class NotebookNodeView;
 class NotebookNodeDelegate;
 class NotebookNodeController;
 class NavigationMode;
-template <typename T> class NavigationModeViewWrapper;
 class ServiceLocator;
 
 // CombinedNodeExplorer encapsulates a single-panel view showing both folders and files.

@@ -5,6 +5,8 @@
 #include <QScopedPointer>
 #include <QSharedPointer>
 
+#include "navigationmodeviewwrapper.h"
+
 namespace vnotex {
 
 class NavigationMode;
@@ -14,7 +16,6 @@ class OutlineView;
 class ServiceLocator;
 class TitleBar;
 class TreeFilterProxyModel;
-template <typename T> class NavigationModeViewWrapper;
 
 class OutlineViewer : public QFrame {
   Q_OBJECT

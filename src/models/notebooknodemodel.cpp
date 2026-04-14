@@ -1,10 +1,14 @@
 #include "notebooknodemodel.h"
 
 #include <QDebug>
+#include <QDir>
+#include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QMimeData>
 #include <QIODevice>
+#include <QTimer>
 
 #include <core/nodeinfo.h>
 #include <core/servicelocator.h>
@@ -17,13 +21,24 @@ const QString c_nodeMimeType = QStringLiteral("application/x-vnotex-node-identif
 } // namespace
 
 NotebookNodeModel::NotebookNodeModel(ServiceLocator &p_services, QObject *p_parent)
-    : QAbstractItemModel(p_parent), m_services(p_services) {}
+    : QAbstractItemModel(p_parent), m_services(p_services) {
+  m_fileSystemWatcher = new QFileSystemWatcher(this);
+  m_fileSystemReloadTimer = new QTimer(this);
+  m_fileSystemReloadTimer->setSingleShot(true);
+  m_fileSystemReloadTimer->setInterval(150);
+
+  connect(m_fileSystemWatcher, &QFileSystemWatcher::directoryChanged, this,
+          &NotebookNodeModel::onDirectoryChanged);
+  connect(m_fileSystemReloadTimer, &QTimer::timeout, this,
+          &NotebookNodeModel::processPendingDirectoryChanges);
+}
 
 NotebookNodeModel::~NotebookNodeModel() {}
 
 void NotebookNodeModel::setNotebookId(const QString &p_notebookId) {
   beginResetModel();
 
+  clearWatchedFolders();
   m_notebookId = p_notebookId;
   m_nodeCache.clear();
   m_childrenCache.clear();
@@ -45,6 +60,7 @@ void NotebookNodeModel::setDisplayRoot(const NodeIdentifier &p_folderId) {
   }
 
   beginResetModel();
+  clearWatchedFolders();
   m_displayRoot = p_folderId;
   m_nodeCache.clear();
   m_childrenCache.clear();
@@ -100,6 +116,13 @@ void NotebookNodeModel::removeNodeFromCaches(const NodeIdentifier &p_nodeId) {
     return;
   }
 
+  unwatchFolder(p_nodeId);
+
+  const auto children = m_childrenCache.value(p_nodeId);
+  for (const NodeIdentifier &childId : children) {
+    removeNodeFromCaches(childId);
+  }
+
   m_nodeCache.remove(p_nodeId);
   m_childrenCache.remove(p_nodeId);
   m_fetchedNodes.remove(p_nodeId);
@@ -108,6 +131,127 @@ void NotebookNodeModel::removeNodeFromCaches(const NodeIdentifier &p_nodeId) {
   if (indexIt != m_indexIdCache.end()) {
     m_indexIdLookup.remove(indexIt.value());
     m_indexIdCache.erase(indexIt);
+  }
+}
+
+void NotebookNodeModel::clearWatchedFolders() {
+  if (!m_fileSystemWatcher) {
+    return;
+  }
+
+  const QStringList watchedDirs = m_fileSystemWatcher->directories();
+  if (!watchedDirs.isEmpty()) {
+    m_fileSystemWatcher->removePaths(watchedDirs);
+  }
+  m_watchedFolders.clear();
+  m_pendingChangedFolders.clear();
+}
+
+void NotebookNodeModel::watchFolder(const NodeIdentifier &p_nodeId) {
+  if (!p_nodeId.isValid() || !m_fileSystemWatcher) {
+    return;
+  }
+
+  auto nodeIt = m_nodeCache.find(p_nodeId);
+  if (nodeIt != m_nodeCache.end() && !nodeIt.value().isFolder) {
+    return;
+  }
+
+  auto *notebookService = m_services.get<NotebookCoreService>();
+  if (!notebookService) {
+    return;
+  }
+
+  const QString absolutePath =
+      notebookService->buildAbsolutePath(p_nodeId.notebookId, p_nodeId.relativePath);
+  if (absolutePath.isEmpty()) {
+    return;
+  }
+
+  QFileInfo finfo(absolutePath);
+  if (!finfo.exists() || !finfo.isDir()) {
+    return;
+  }
+
+  const QString watchedPath = QDir(finfo.absoluteFilePath()).absolutePath();
+  if (m_watchedFolders.contains(watchedPath)) {
+    m_watchedFolders[watchedPath] = p_nodeId;
+    return;
+  }
+
+  if (m_fileSystemWatcher->addPath(watchedPath)) {
+    m_watchedFolders.insert(watchedPath, p_nodeId);
+  }
+}
+
+void NotebookNodeModel::unwatchFolder(const NodeIdentifier &p_nodeId) {
+  if (!p_nodeId.isValid() || !m_fileSystemWatcher) {
+    return;
+  }
+
+  QList<QString> pathsToRemove;
+  for (auto it = m_watchedFolders.constBegin(); it != m_watchedFolders.constEnd(); ++it) {
+    if (it.value() == p_nodeId) {
+      pathsToRemove.append(it.key());
+    }
+  }
+
+  for (const QString &path : pathsToRemove) {
+    m_pendingChangedFolders.remove(path);
+    m_watchedFolders.remove(path);
+    if (m_fileSystemWatcher->directories().contains(path)) {
+      m_fileSystemWatcher->removePath(path);
+    }
+  }
+}
+
+void NotebookNodeModel::onDirectoryChanged(const QString &p_path) {
+  const QString watchedPath = QDir(p_path).absolutePath();
+  if (!m_watchedFolders.contains(watchedPath)) {
+    return;
+  }
+
+  m_pendingChangedFolders.insert(watchedPath);
+  if (m_fileSystemReloadTimer) {
+    m_fileSystemReloadTimer->start();
+  }
+}
+
+void NotebookNodeModel::processPendingDirectoryChanges() {
+  if (m_pendingChangedFolders.isEmpty()) {
+    return;
+  }
+
+  const QSet<QString> changedFolders = m_pendingChangedFolders;
+  m_pendingChangedFolders.clear();
+
+  QSet<NodeIdentifier> nodesToReload;
+  auto *notebookService = m_services.get<NotebookCoreService>();
+
+  for (const QString &path : changedFolders) {
+    NodeIdentifier nodeId = m_watchedFolders.value(path);
+    if (!nodeId.isValid() || nodeId.notebookId != m_notebookId) {
+      continue;
+    }
+
+    if (notebookService) {
+      const QString currentPath =
+          notebookService->buildAbsolutePath(nodeId.notebookId, nodeId.relativePath);
+      QFileInfo finfo(currentPath);
+      if (!finfo.exists() && !nodeId.isRoot()) {
+        NodeIdentifier parentId;
+        parentId.notebookId = nodeId.notebookId;
+        parentId.relativePath = nodeId.parentPath();
+        nodesToReload.insert(parentId);
+        continue;
+      }
+    }
+
+    nodesToReload.insert(nodeId);
+  }
+
+  for (const NodeIdentifier &nodeId : nodesToReload) {
+    reloadNode(nodeId);
   }
 }
 
@@ -647,6 +791,7 @@ void NotebookNodeModel::fetchMore(const QModelIndex &p_parent) {
     parentInfoIt.value().childCount = childIds.size();
   }
   markNodeFetched(parentId);
+  watchFolder(parentId);
 
   if (!allNodes.isEmpty()) {
     endInsertRows();
@@ -712,6 +857,7 @@ void NotebookNodeModel::prefetchChildrenOfChildren(const QModelIndex &p_parent) 
     m_childrenCache.insert(childId, grandchildIds);
     childIt.value().childCount = grandchildIds.size();
     markNodeFetched(childId);
+    watchFolder(childId);
 
     QModelIndex childIndex = indexFromNodeId(childId);
     if (childIndex.isValid()) {
@@ -842,6 +988,7 @@ NodeInfo NotebookNodeModel::nodeInfoFromIndex(const QModelIndex &p_index) const 
 
 void NotebookNodeModel::reload() {
   beginResetModel();
+  clearWatchedFolders();
   m_nodeCache.clear();
   m_childrenCache.clear();
   m_fetchedNodes.clear();
@@ -928,9 +1075,11 @@ void NotebookNodeModel::reloadNode(const NodeIdentifier &p_nodeId) {
     if (newChildCount > 0) {
       beginInsertRows(nodeIndex, 0, newChildCount - 1);
       markNodeFetched(p_nodeId);
+      watchFolder(p_nodeId);
       endInsertRows();
     } else {
       markNodeFetched(p_nodeId);
+      watchFolder(p_nodeId);
     }
   }
 

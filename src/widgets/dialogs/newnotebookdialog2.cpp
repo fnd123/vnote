@@ -60,18 +60,18 @@ void NewNotebookDialog2::setupUI() {
   m_rootFolderInput->setPlaceholderText(tr("Select a folder as notebook root"));
   m_rootFolderInput->setToolTip(
       tr("Root folder of the notebook.\n"
-         "A new notebook requires an empty folder or a non-existent path (will be created)."));
+         "Raw notebooks may use an existing folder; bundled notebooks require an empty folder."));
   connect(m_rootFolderInput, &LocationInputWithBrowseButton::textChanged, this,
           &NewNotebookDialog2::handleRootFolderPathChanged);
   layout->addRow(tr("Root Folder:"), m_rootFolderInput);
 
   // Notebook type combo.
   m_typeCombo = WidgetsFactory::createComboBox(mainWidget);
-  m_typeCombo->addItem(tr("Bundled Notebook"), static_cast<int>(NotebookType::Bundled));
   m_typeCombo->addItem(tr("Raw Notebook"), static_cast<int>(NotebookType::Raw));
+  m_typeCombo->addItem(tr("Bundled Notebook"), static_cast<int>(NotebookType::Bundled));
   m_typeCombo->setToolTip(
-      tr("Bundled: Notebook with metadata stored in config files.\n"
-         "Raw: Plain folder structure with minimal VNote metadata."));
+      tr("Raw: Plain folder structure without VNote metadata files in your notes.\n"
+         "Bundled: Notebook with metadata stored in config files."));
   layout->addRow(tr("Type:"), m_typeCombo);
 
   setCentralWidget(mainWidget);

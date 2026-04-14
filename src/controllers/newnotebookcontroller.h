@@ -15,7 +15,7 @@ struct NewNotebookInput {
   QString name;
   QString description;
   QString rootFolderPath;
-  NotebookType type = NotebookType::Bundled;
+  NotebookType type = NotebookType::Raw;
 };
 
 // Result structure for notebook creation.
@@ -44,8 +44,8 @@ public:
   ValidationResult validateName(const QString &p_name) const;
 
   // Validate root folder path.
-  // Checks: legal path, empty or non-existent, no duplicate notebook.
-  ValidationResult validateRootFolder(const QString &p_path) const;
+  // Bundled notebooks require an empty/non-existent folder; raw notebooks may use existing data.
+  ValidationResult validateRootFolder(const QString &p_path, NotebookType p_type) const;
 
   // Validate all inputs.
   ValidationResult validateAll(const NewNotebookInput &p_input) const;

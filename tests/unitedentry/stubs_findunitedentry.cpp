@@ -3,6 +3,8 @@
 
 #include <core/configmgr2.h>
 #include <core/coreconfig.h>
+#include <core/mainconfig.h>
+#include <core/sessionconfig.h>
 #include <core/services/notebookcoreservice.h>
 #include <gui/services/themeservice.h>
 #include <gui/utils/iconutils.h>
@@ -91,12 +93,20 @@ CoreConfig &ConfigMgr2::getCoreConfig() {
   return *s;
 }
 
+ConfigMgr2::~ConfigMgr2() = default;
+
+void ConfigMgr2::updateMainConfig(const QJsonObject &) {}
+
+void ConfigMgr2::updateSessionConfig(const QJsonObject &) {}
+
+void ConfigMgr2::doWriteMainConfig() {}
+
+void ConfigMgr2::doWriteSessionConfig() {}
+
 const QJsonArray &CoreConfig::getUnitedEntryAlias() const {
   static QJsonArray s;
   return s;
 }
-
-QJsonArray NotebookCoreService::listNotebooks() const { return QJsonArray(); }
 
 void Utils::sleepWait(int) {}
 

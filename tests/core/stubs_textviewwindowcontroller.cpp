@@ -6,6 +6,8 @@
 #include <core/configmgr2.h>
 #include <core/coreconfig.h>
 #include <core/editorconfig.h>
+#include <core/mainconfig.h>
+#include <core/sessionconfig.h>
 
 using namespace vnotex;
 
@@ -22,6 +24,16 @@ EditorConfig &ConfigMgr2::getEditorConfig() {
   Q_ASSERT_X(false, "stub", "ConfigMgr2::getEditorConfig() called in test - not expected");
   return *s; // unreachable
 }
+
+ConfigMgr2::~ConfigMgr2() = default;
+
+void ConfigMgr2::updateMainConfig(const QJsonObject &) {}
+
+void ConfigMgr2::updateSessionConfig(const QJsonObject &) {}
+
+void ConfigMgr2::doWriteMainConfig() {}
+
+void ConfigMgr2::doWriteSessionConfig() {}
 
 // --- CoreConfig stub ---
 

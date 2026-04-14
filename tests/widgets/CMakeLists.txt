@@ -1,7 +1,6 @@
 add_qt_test(test_snippet_apply
   SOURCES
     test_snippet_apply.cpp
-    ${CMAKE_SOURCE_DIR}/src/widgets/viewwindow2.h
   LINKS
     core_services
     vxcore

@@ -3,11 +3,13 @@ add_qt_test(test_findunitedentry
     test_findunitedentry.cpp
     ${CMAKE_SOURCE_DIR}/src/controllers/searchcontroller.cpp
     ${CMAKE_SOURCE_DIR}/src/core/searchresulttypes.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/configmgr2.h
     ${CMAKE_SOURCE_DIR}/src/models/searchresultmodel.cpp
     ${CMAKE_SOURCE_DIR}/src/unitedentry/findunitedentry.cpp
     ${CMAKE_SOURCE_DIR}/src/unitedentry/iunitedentry.cpp
     ${CMAKE_SOURCE_DIR}/src/unitedentry/helpunitedentry.h
     ${CMAKE_SOURCE_DIR}/src/unitedentry/unitedentryalias.h
+    ${CMAKE_SOURCE_DIR}/src/gui/services/themeservice.h
     ${CMAKE_SOURCE_DIR}/src/utils/processutils.cpp
     ${CMAKE_SOURCE_DIR}/src/unitedentry/unitedentrymgr.cpp
     stubs_findunitedentry.cpp

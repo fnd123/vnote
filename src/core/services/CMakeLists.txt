@@ -18,6 +18,7 @@ set(SERVICES_SOURCES
   workspacecoreservice.cpp
   ${CMAKE_SOURCE_DIR}/src/core/hookevents.cpp
   ${CMAKE_SOURCE_DIR}/src/core/error.cpp
+  ${CMAKE_SOURCE_DIR}/src/core/searchresulttypes.cpp
   ${CMAKE_SOURCE_DIR}/src/utils/fileutils.cpp
   ${CMAKE_SOURCE_DIR}/src/utils/pathutils.cpp
 )

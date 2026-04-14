@@ -133,22 +133,22 @@ void FindAndReplaceWidget2::setupUI() {
     gridLayout->addLayout(optionLayout, 2, 1, 1, 4);
 
     m_caseSensitiveCheckBox = WidgetsFactory::createCheckBox(tr("&Case sensitive"), this);
-    connect(m_caseSensitiveCheckBox, &QCheckBox::checkStateChanged, this,
+    connect(m_caseSensitiveCheckBox, QOverload<int>::of(&QCheckBox::stateChanged), this,
             &FindAndReplaceWidget2::updateFindOptions);
     optionLayout->addWidget(m_caseSensitiveCheckBox);
 
     m_wholeWordOnlyCheckBox = WidgetsFactory::createCheckBox(tr("&Whole word only"), this);
-    connect(m_wholeWordOnlyCheckBox, &QCheckBox::checkStateChanged, this,
+    connect(m_wholeWordOnlyCheckBox, QOverload<int>::of(&QCheckBox::stateChanged), this,
             &FindAndReplaceWidget2::updateFindOptions);
     optionLayout->addWidget(m_wholeWordOnlyCheckBox);
 
     m_regularExpressionCheckBox = WidgetsFactory::createCheckBox(tr("Re&gular expression"), this);
-    connect(m_regularExpressionCheckBox, &QCheckBox::checkStateChanged, this,
+    connect(m_regularExpressionCheckBox, QOverload<int>::of(&QCheckBox::stateChanged), this,
             &FindAndReplaceWidget2::updateFindOptions);
     optionLayout->addWidget(m_regularExpressionCheckBox);
 
     m_incrementalSearchCheckBox = WidgetsFactory::createCheckBox(tr("&Incremental search"), this);
-    connect(m_incrementalSearchCheckBox, &QCheckBox::checkStateChanged, this,
+    connect(m_incrementalSearchCheckBox, QOverload<int>::of(&QCheckBox::stateChanged), this,
             &FindAndReplaceWidget2::updateFindOptions);
     optionLayout->addWidget(m_incrementalSearchCheckBox);
 

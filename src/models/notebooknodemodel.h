@@ -11,6 +11,9 @@
 #include <core/servicelocator.h>
 #include <models/inodelistmodel.h>
 
+class QFileSystemWatcher;
+class QTimer;
+
 namespace vnotex {
 
 inline bool operator<(const NodeIdentifier &p_left, const NodeIdentifier &p_right) {
@@ -104,6 +107,11 @@ private:
   QVector<NodeInfo> parseExternalNodesFromJson(const QJsonObject &p_json,
                                                const NodeIdentifier &p_parentId) const;
   NodeInfo parseNodeInfoFromJson(const QJsonObject &p_json, const NodeIdentifier &p_parentId) const;
+  void clearWatchedFolders();
+  void watchFolder(const NodeIdentifier &p_nodeId);
+  void unwatchFolder(const NodeIdentifier &p_nodeId);
+  void onDirectoryChanged(const QString &p_path);
+  void processPendingDirectoryChanges();
 
   ServiceLocator &m_services;
   QString m_notebookId;
@@ -114,6 +122,10 @@ private:
   mutable QHash<NodeIdentifier, quintptr> m_indexIdCache;
   mutable QHash<quintptr, NodeIdentifier> m_indexIdLookup;
   mutable quintptr m_nextIndexId = 1;
+  QFileSystemWatcher *m_fileSystemWatcher = nullptr;
+  QTimer *m_fileSystemReloadTimer = nullptr;
+  QHash<QString, NodeIdentifier> m_watchedFolders;
+  QSet<QString> m_pendingChangedFolders;
   bool m_externalNodesVisible = false;
 };
 

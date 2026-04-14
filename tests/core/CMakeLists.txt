@@ -162,6 +162,7 @@ add_qt_test(test_tagviewer2
     ${CMAKE_SOURCE_DIR}/src/widgets/listwidget.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/styleditemdelegate.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/simplesegmenthighlighter.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/services/themeservice.h
     ${CMAKE_SOURCE_DIR}/src/gui/utils/iconutils.cpp
   LINKS
     core_services
@@ -178,6 +179,7 @@ add_qt_test(test_textviewwindowcontroller
   SOURCES
     test_textviewwindowcontroller.cpp
     stubs_textviewwindowcontroller.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/configmgr2.h
     ${CMAKE_SOURCE_DIR}/src/controllers/textviewwindowcontroller.cpp
     ${CMAKE_SOURCE_DIR}/src/core/editorconfig.cpp
     ${CMAKE_SOURCE_DIR}/src/core/texteditorconfig.cpp
@@ -202,6 +204,7 @@ add_qt_test(test_pdfviewwindowcontroller
   SOURCES
     test_pdfviewwindowcontroller.cpp
     stubs_textviewwindowcontroller.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/configmgr2.h
     ${CMAKE_SOURCE_DIR}/src/controllers/pdfviewwindowcontroller.cpp
     ${CMAKE_SOURCE_DIR}/src/core/editorconfig.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pdfviewerconfig.cpp
@@ -225,6 +228,7 @@ add_qt_test(test_markdownviewwindowcontroller
   SOURCES
     test_markdownviewwindowcontroller.cpp
     stubs_textviewwindowcontroller.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/configmgr2.h
     ${CMAKE_SOURCE_DIR}/src/controllers/markdownviewwindowcontroller.cpp
     ${CMAKE_SOURCE_DIR}/src/core/editorconfig.cpp
     ${CMAKE_SOURCE_DIR}/src/core/texteditorconfig.cpp
@@ -248,6 +252,7 @@ add_qt_test(test_markdowneditorcontroller
   SOURCES
     test_markdowneditorcontroller.cpp
     stubs_textviewwindowcontroller.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/configmgr2.h
     ${CMAKE_SOURCE_DIR}/src/controllers/markdowneditorcontroller.cpp
     ${CMAKE_SOURCE_DIR}/src/core/editorconfig.cpp
     ${CMAKE_SOURCE_DIR}/src/core/texteditorconfig.cpp

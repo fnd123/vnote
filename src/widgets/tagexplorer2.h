@@ -4,6 +4,8 @@
 #include <QFrame>
 #include <QScopedPointer>
 
+#include "navigationmodeviewwrapper.h"
+
 #include <core/nodeidentifier.h>
 #include <core/noncopyable.h>
 
@@ -21,7 +23,6 @@ class FileListView;
 class FileNodeDelegate;
 class TreeFilterProxyModel;
 class NavigationMode;
-template <typename T> class NavigationModeViewWrapper;
 
 // TagExplorer2 is a dock shell widget that wires together TagModel, TagView,
 // FileListView (for tag-matched files), and TagController into a QFrame with

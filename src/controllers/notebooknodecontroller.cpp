@@ -209,10 +209,17 @@ void NotebookNodeController::addEditActions(QMenu *p_menu, const NodeIdentifier 
   connect(deleteAction, &QAction::triggered, this,
           [this, p_nodeId]() { deleteNodes(QList<NodeIdentifier>() << p_nodeId); });
 
-  auto *removeAction = p_menu->addAction(tr("Remove From Notebook"));
-  removeAction->setToolTip(tr("Remove from notebook but keep files on disk"));
-  connect(removeAction, &QAction::triggered, this,
-          [this, p_nodeId]() { removeNodesFromNotebook(QList<NodeIdentifier>() << p_nodeId); });
+  auto *notebookService = m_services.get<NotebookCoreService>();
+  QJsonObject nbConfig =
+      notebookService ? notebookService->getNotebookConfig(p_nodeId.notebookId) : QJsonObject();
+  const bool supportsUnindex = nbConfig.value(QStringLiteral("type")).toString() !=
+                              QStringLiteral("raw");
+  if (supportsUnindex) {
+    auto *removeAction = p_menu->addAction(tr("Remove From Notebook"));
+    removeAction->setToolTip(tr("Remove from notebook but keep files on disk"));
+    connect(removeAction, &QAction::triggered, this,
+            [this, p_nodeId]() { removeNodesFromNotebook(QList<NodeIdentifier>() << p_nodeId); });
+  }
 }
 
 void NotebookNodeController::addCopyMoveActions(QMenu *p_menu, const NodeIdentifier &p_nodeId,

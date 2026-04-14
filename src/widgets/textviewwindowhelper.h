@@ -1,6 +1,7 @@
 #ifndef TEXTVIEWWINDOWHELPER_H
 #define TEXTVIEWWINDOWHELPER_H
 
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -406,7 +407,8 @@ public:
     const int cursorOffset = result[QStringLiteral("cursorOffset")].toInt();
 
     if (appliedText.isEmpty()) {
-      p_win->showMessage(ViewWindow2::tr("Snippet (%1) not found").arg(p_name));
+      p_win->showMessage(
+          QCoreApplication::translate("ViewWindow2", "Snippet (%1) not found").arg(p_name));
       return;
     }
 
@@ -420,7 +422,8 @@ public:
     textEdit->setTextCursor(cursor);
 
     p_win->m_editor->enterInsertModeIfApplicable();
-    p_win->showMessage(ViewWindow2::tr("Snippet applied: %1").arg(p_name));
+    p_win->showMessage(
+        QCoreApplication::translate("ViewWindow2", "Snippet applied: %1").arg(p_name));
   }
 
   // Apply snippet with auto-detection or QuickSelector prompt.
@@ -447,7 +450,9 @@ public:
         // Validate snippet exists BEFORE removing symbol from document.
         const auto snippetObj = snippetSvc->getSnippet(symbolResult.name);
         if (snippetObj.isEmpty()) {
-          p_win->showMessage(ViewWindow2::tr("Snippet (%1) not found").arg(symbolResult.name));
+          p_win->showMessage(
+              QCoreApplication::translate("ViewWindow2", "Snippet (%1) not found")
+                  .arg(symbolResult.name));
           return;
         }
 
@@ -482,7 +487,7 @@ public:
 
     const auto snippets = snippetSvc->listSnippets();
     if (snippets.isEmpty()) {
-      p_win->showMessage(ViewWindow2::tr("Snippet not available"));
+      p_win->showMessage(QCoreApplication::translate("ViewWindow2", "Snippet not available"));
       return QString();
     }
 
@@ -497,8 +502,9 @@ public:
 
     // Ownership will be transferred to showFloatingWidget().
     auto *themeSvc = p_win->getServices().template get<ThemeService>();
-    auto selector =
-        new QuickSelector(themeSvc, ViewWindow2::tr("Select Snippet"), items, true, p_win);
+    auto selector = new QuickSelector(
+        themeSvc, QCoreApplication::translate("ViewWindow2", "Select Snippet"), items, true,
+        p_win);
     auto ret = p_win->showFloatingWidget(selector);
     return ret.toString();
   }
