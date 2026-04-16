@@ -3,8 +3,10 @@
 #include "webpage.h"
 
 #include <QWebEnginePage>
+#include <QUrl>
 
 #include <utils/utils.h>
+#include <utils/widgetutils.h>
 
 using namespace vnotex;
 
@@ -16,6 +18,10 @@ WebViewer::WebViewer(const QColor &p_background, qreal p_zoomFactor, QWidget *p_
   setPage(viewPage);
 
   connect(viewPage, &QWebEnginePage::linkHovered, this, &WebViewer::linkHovered);
+  connect(viewPage, &WebPage::localFileOpenRequested, this,
+          &WebViewer::localFileOpenRequested);
+  connect(this, &WebViewer::localFileOpenRequested, this,
+          &WebViewer::handleLocalFileOpenRequested);
 
   // Avoid white flash before loading content.
   // Setting Qt::transparent will force GrayScale antialias rendering.
@@ -47,4 +53,10 @@ void WebViewer::findText(const QString &p_text, FindOptions p_options) {
   }
 
   QWebEngineView::findText(p_text, flags);
+}
+
+void WebViewer::handleLocalFileOpenRequested(const QString &p_filePath) {
+  if (!p_filePath.isEmpty()) {
+    WidgetUtils::openUrlByDesktop(QUrl::fromLocalFile(p_filePath));
+  }
 }

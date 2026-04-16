@@ -169,7 +169,7 @@ void TestSearchController::testBuildQueryJsonContentSearch() {
   QCOMPARE(obj.value(QStringLiteral("maxResults")).toInt(), 500);
 
   const QJsonObject scopeObj = obj.value(QStringLiteral("scope")).toObject();
-  const QJsonArray patterns = scopeObj.value(QStringLiteral("pathPatterns")).toArray();
+  const QJsonArray patterns = scopeObj.value(QStringLiteral("filePatterns")).toArray();
   QCOMPARE(patterns.size(), 1);
   QCOMPARE(patterns.first().toString(), QStringLiteral("*.md"));
 }
@@ -198,10 +198,7 @@ void TestSearchController::testStaleTokenRejection() {
   fakeResult.m_fileResults.append(fakeFile);
   fakeResult.m_matchCount = 1;
 
-  const bool invoked =
-      QMetaObject::invokeMethod(fixture.controller, "onSearchFinished", Qt::DirectConnection,
-                                Q_ARG(int, tokenA), Q_ARG(vnotex::SearchResult, fakeResult));
-  QVERIFY(invoked);
+  fixture.controller->onSearchFinished(tokenA, fakeResult);
 
   const QString stalePath = QStringLiteral("STALE_SHOULD_NOT_APPEAR");
   for (int i = 0; i < model.rowCount(); ++i) {

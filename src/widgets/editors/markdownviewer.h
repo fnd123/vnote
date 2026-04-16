@@ -43,6 +43,8 @@ private slots:
 
   void handleWebKeyPress(int p_key, bool p_ctrl, bool p_shift, bool p_meta);
 
+  void handleLocalFileOpenRequested(const QString &p_filePath) Q_DECL_OVERRIDE;
+
 private:
   void handleCopyImageUrlAction();
 

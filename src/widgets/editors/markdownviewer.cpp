@@ -2,9 +2,12 @@
 
 #include <QApplication>
 #include <QContextMenuEvent>
+#include <QFileInfo>
+#include <QJsonObject>
 #include <QMenu>
 #include <QMimeData>
 #include <QScopedPointer>
+#include <QUrl>
 #include <QWebChannel>
 #include <QWebEngineSettings>
 
@@ -14,7 +17,11 @@
 #include "previewhelper.h"
 #include <core/configmgr2.h>
 #include <core/editorconfig.h>
+#include <core/fileopensettings.h>
+#include <core/nodeidentifier.h>
 #include <core/servicelocator.h>
+#include <core/services/bufferservice.h>
+#include <core/services/notebookcoreservice.h>
 #include <utils/clipboardutils.h>
 #include <utils/fileutils.h>
 #include <utils/utils.h>
@@ -265,6 +272,51 @@ void MarkdownViewer::handleClipboardChanged(QClipboard::Mode p_mode) {
       crossCopy(m_crossCopyTarget, url().toString(), mimeData->html());
     }
   }
+}
+
+void MarkdownViewer::handleLocalFileOpenRequested(const QString &p_filePath) {
+  if (p_filePath.isEmpty()) {
+    return;
+  }
+
+  QFileInfo finfo(p_filePath);
+  if (!finfo.exists()) {
+    qWarning() << "MarkdownViewer: local link target does not exist" << p_filePath;
+    WidgetUtils::openUrlByDesktop(QUrl::fromLocalFile(p_filePath));
+    return;
+  }
+
+  const QString absolutePath = finfo.canonicalFilePath().isEmpty()
+                                   ? finfo.absoluteFilePath()
+                                   : finfo.canonicalFilePath();
+  if (finfo.isDir()) {
+    WidgetUtils::openUrlByDesktop(QUrl::fromLocalFile(absolutePath));
+    return;
+  }
+
+  auto *bufferService = m_services.get<BufferService>();
+  if (!bufferService) {
+    qWarning() << "MarkdownViewer: BufferService unavailable for local link" << absolutePath;
+    WidgetUtils::openUrlByDesktop(QUrl::fromLocalFile(absolutePath));
+    return;
+  }
+
+  NodeIdentifier nodeId;
+  auto *notebookService = m_services.get<NotebookCoreService>();
+  if (notebookService) {
+    const auto resolved = notebookService->resolvePathToNotebook(absolutePath);
+    nodeId.notebookId = resolved.value(QStringLiteral("notebookId")).toString();
+    nodeId.relativePath = resolved.value(QStringLiteral("relativePath")).toString();
+  }
+
+  if (nodeId.notebookId.isEmpty()) {
+    nodeId.relativePath = absolutePath;
+  }
+
+  FileOpenSettings settings;
+  settings.m_mode = ViewWindowMode::Read;
+  settings.m_focus = true;
+  bufferService->openBuffer(nodeId, settings);
 }
 
 void MarkdownViewer::removeHtmlFromImageData(QClipboard *p_clipboard, const QMimeData *p_mimeData) {
