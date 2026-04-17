@@ -123,7 +123,9 @@ bool isPathUnderDirectory(const QString &p_path, const QString &p_dir) {
 }
 
 QString excludedOutputDirForSource(const QString &p_outputDir, const QString &p_sourceRootDir) {
-  if (p_outputDir.isEmpty() || p_sourceRootDir.isEmpty() || isSamePath(p_outputDir, p_sourceRootDir)) {
+  if (p_outputDir.isEmpty() || p_sourceRootDir.isEmpty() ||
+      isSamePath(p_outputDir, p_sourceRootDir) ||
+      !isPathUnderDirectory(p_outputDir, p_sourceRootDir)) {
     return QString();
   }
 
