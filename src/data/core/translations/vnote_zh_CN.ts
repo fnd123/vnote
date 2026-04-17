@@ -2279,7 +2279,7 @@ Backup file last modified time: %2</source>
     </message>
     <message>
         <location filename="../../../controllers/exportcontroller.cpp" line="38"/>
-        <location filename="../../../controllers/exportcontroller.cpp" line="180"/>
+        <location filename="../../../controllers/exportcontroller.cpp" line="231"/>
         <source>NotebookCoreService not available.</source>
         <translation>NotebookCoreService 不可用。</translation>
     </message>
@@ -2294,37 +2294,48 @@ Backup file last modified time: %2</source>
         <translation>没有可导出的当前缓冲区。</translation>
     </message>
     <message>
-        <location filename="../../../controllers/exportcontroller.cpp" line="60"/>
+        <location filename="../../../controllers/exportcontroller.cpp" line="73"/>
         <source>Failed to resolve current buffer path.</source>
         <translation>解析当前缓冲区路径失败。</translation>
     </message>
     <message>
-        <location filename="../../../controllers/exportcontroller.cpp" line="84"/>
+        <location filename="../../../controllers/exportcontroller.cpp" line="94"/>
         <source>No current note available for export.</source>
         <translation>没有可导出的当前笔记。</translation>
     </message>
     <message>
-        <location filename="../../../controllers/exportcontroller.cpp" line="92"/>
+        <location filename="../../../controllers/exportcontroller.cpp" line="102"/>
         <source>Failed to resolve current note path.</source>
         <translation>解析当前笔记路径失败。</translation>
     </message>
     <message>
-        <location filename="../../../controllers/exportcontroller.cpp" line="111"/>
+        <location filename="../../../controllers/exportcontroller.cpp" line="121"/>
         <source>No current folder available for export.</source>
         <translation>没有可导出的当前文件夹。</translation>
     </message>
     <message>
-        <location filename="../../../controllers/exportcontroller.cpp" line="131"/>
+        <location filename="../../../controllers/exportcontroller.cpp" line="136"/>
+        <source>No selected nodes available for export.</source>
+        <translation>没有可用于导出的已选节点。</translation>
+    </message>
+    <message>
+        <location filename="../../../controllers/exportcontroller.cpp" line="171"/>
+        <source>selected_export</source>
+        <translation>已选内容导出</translation>
+    </message>
+    <message>
+        <location filename="../../../controllers/exportcontroller.cpp" line="182"/>
         <source>No current notebook available for export.</source>
         <translation>没有可导出的当前笔记本。</translation>
     </message>
     <message>
-        <location filename="../../../controllers/exportcontroller.cpp" line="143"/>
+        <location filename="../../../controllers/exportcontroller.cpp" line="194"/>
         <source>Unsupported export source.</source>
         <translation>不支持的导出来源。</translation>
     </message>
     <message>
-        <location filename="../../../controllers/exportcontroller.cpp" line="198"/>
+        <location filename="../../../controllers/exportcontroller.cpp" line="149"/>
+        <location filename="../../../controllers/exportcontroller.cpp" line="249"/>
         <source>Failed to resolve file path for (%1).</source>
         <translation>解析文件路径失败（%1）。</translation>
     </message>
@@ -2423,28 +2434,28 @@ Backup file last modified time: %2</source>
         <translation>请指定一个有效的方案</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="612"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="617"/>
         <source>Add PDF outline</source>
         <translation>添加 PDF 大纲</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="620"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="625"/>
         <source>Use wkhtmltopdf (outline supported)</source>
         <translation>使用wkhtmltopdf(支持大纲)</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="634"/>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="727"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="639"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="729"/>
         <source>Export all source files into one file</source>
         <translation>导出所有的源文件到一个文件中</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="647"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="649"/>
         <source>Browse</source>
         <translation>浏览</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="742"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="744"/>
         <source>Command:
 	%1: List of input files.
 	%2: List of paths to search for images and other resources.
@@ -2459,22 +2470,22 @@ Backup file last modified time: %2</source>
 	%5: 输出文件路径。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="856"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="860"/>
         <source>New Custom Export Scheme</source>
         <translation>新建自定义导出方案</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="856"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="860"/>
         <source>Scheme name:</source>
         <translation>方案名字:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="863"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="867"/>
         <source>Name conflicts with existing scheme.</source>
         <translation>名字和已有方案冲突。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="895"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="899"/>
         <source>Delete scheme (%1)?</source>
         <translation>删除方案(%1)?</translation>
     </message>
@@ -2586,93 +2597,98 @@ Backup file last modified time: %2</source>
         <translation>页面布局:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="623"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="612"/>
+        <source>Add visible table of contents</source>
+        <translation>添加可见目录</translation>
+    </message>
+    <message>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="628"/>
         <source>Download</source>
         <translation>下载</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="633"/>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="726"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="638"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="728"/>
         <source>All-in-One</source>
         <translation>多合一</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="650"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="652"/>
         <source>Select wkhtmltopdf Executable</source>
         <translation>选择wkhtmltopdf可执行文件</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="658"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="660"/>
         <source>Wkhtmltopdf path:</source>
         <translation>Wkhtmltopdf路径:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="663"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="665"/>
         <source>Wkhtmltopdf arguments:</source>
         <translation>Wkhtmltopdf参数:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="684"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="686"/>
         <source>Scheme:</source>
         <translation>方案:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="690"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="692"/>
         <source>New</source>
         <translation>新建</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="695"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="697"/>
         <source>Delete</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="703"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="705"/>
         <source>Suffix of the target file like docs/pdf/epub</source>
         <translation>目标文件的后缀，如docs/pdf/epub</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="705"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="707"/>
         <source>Target file suffix:</source>
         <translation>目标文件后缀:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="711"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="713"/>
         <source>Separator used to concatenate resource folder paths</source>
         <translation>用于连接资源文件夹路径的分隔符</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="713"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="715"/>
         <source>Resource path separator:</source>
         <translation>资源路径分隔符:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="718"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="720"/>
         <source>Use HTML format as input</source>
         <translation>使用HTML格式作为输入</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="720"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="722"/>
         <source>Convert to HTMl format first as the input of the custom export command</source>
         <translation>首先转换为HTML格式然后作为自定义输出命令的输入</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="734"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="736"/>
         <source>Target page scrollable</source>
         <translation>目标页面可滚动</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="736"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="738"/>
         <source>Whether the page of the target file is scrollable</source>
         <translation>目标文件的页面是否可滚动的</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="836"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="840"/>
         <source>Portrait</source>
         <translation>纵向</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="836"/>
+        <location filename="../../../widgets/dialogs/exportdialog.cpp" line="840"/>
         <source>Landscape</source>
         <translation>横向</translation>
     </message>
@@ -2721,275 +2737,290 @@ Backup file last modified time: %2</source>
     </message>
     <message>
         <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="119"/>
+        <source>Selected Nodes (%1)</source>
+        <translation>已选节点 (%1)</translation>
+    </message>
+    <message>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="122"/>
         <source>Unknown Source</source>
         <translation>未知来源</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="143"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="150"/>
         <source>No current buffer content available</source>
         <translation>当前缓冲区没有可用内容</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="146"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="153"/>
         <source>No current note available</source>
         <translation>当前没有可用笔记</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="149"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="156"/>
         <source>No current folder available</source>
         <translation>当前没有可用文件夹</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="152"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="159"/>
         <source>No current notebook available</source>
         <translation>当前没有可用笔记本</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="201"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="162"/>
+        <source>No selected nodes available</source>
+        <translation>没有可用的已选节点</translation>
+    </message>
+    <message>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="211"/>
         <source>Options</source>
         <translation>选项</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="227"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="237"/>
         <source>Markdown</source>
         <translation>Markdown</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="228"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="238"/>
         <source>HTML</source>
         <translation>HTML网页</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="229"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="239"/>
         <source>PDF</source>
         <translation>PDF</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="230"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="240"/>
         <source>Custom</source>
         <translation>自定义</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="232"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="242"/>
         <source>Source:</source>
         <translation>源:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="234"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="244"/>
         <source>Format:</source>
         <translation>格式:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="240"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="250"/>
         <source>Select Export Output Directory</source>
         <translation>选择导出输出目录</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="241"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="251"/>
         <source>Output directory:</source>
         <translation>输出目录:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="258"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="268"/>
         <source>Rendering style:</source>
         <translation>渲染样式:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="260"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="270"/>
         <source>Syntax style:</source>
         <translation>语法样式：</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="265"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="275"/>
         <source>Use transparent background</source>
         <translation>使用透明背景</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="266"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="276"/>
         <source>Process sub-folders</source>
         <translation>处理子文件夹</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="280"/>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="436"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="290"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="450"/>
         <source>Markdown Options</source>
         <translation>Markdown 选项</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="280"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="290"/>
         <source>HTML Options</source>
         <translation>HTML 选项</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="280"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="290"/>
         <source>PDF Options</source>
         <translation>PDF 选项</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="281"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="291"/>
         <source>Custom Options</source>
         <translation>自定义选项</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="293"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="303"/>
         <source>Export attachments</source>
         <translation>导出附件</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="305"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="315"/>
         <source>Embed styles</source>
         <translation>嵌入样式</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="308"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="318"/>
         <source>Embed images</source>
         <translation>嵌入图片</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="311"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="321"/>
         <source>Complete page</source>
         <translation>完整页面</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="316"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="326"/>
         <source>Add outline panel</source>
         <translation>添加大纲面板</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="319"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="329"/>
         <source>MIME HTML format</source>
         <translation>MIME HTML 格式</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="331"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="341"/>
         <source>Scrollable page</source>
         <translation>可滚动页面</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="343"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="353"/>
         <source>Settings</source>
         <translation>设置</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="344"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="354"/>
         <source>Page layout:</source>
         <translation>页面布局:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="367"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="378"/>
+        <source>Add visible table of contents</source>
+        <translation>添加可见目录</translation>
+    </message>
+    <message>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="381"/>
         <source>Add PDF outline</source>
         <translation>添加 PDF 大纲</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="371"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="385"/>
         <source>Use wkhtmltopdf (outline supported)</source>
         <translation>使用wkhtmltopdf(支持大纲)</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="375"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="389"/>
         <source>Wkhtmltopdf path:</source>
         <translation>Wkhtmltopdf路径:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="378"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="392"/>
         <source>Wkhtmltopdf arguments:</source>
         <translation>Wkhtmltopdf参数:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="380"/>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="419"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="394"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="433"/>
         <source>All-in-One</source>
         <translation>多合一</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="381"/>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="420"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="395"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="434"/>
         <source>Export all source files into one file</source>
         <translation>导出所有的源文件到一个文件中</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="400"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="414"/>
         <source>New</source>
         <translation>新建</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="404"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="418"/>
         <source>Delete</source>
         <translation>删除</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="408"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="422"/>
         <source>Scheme:</source>
         <translation>方案:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="411"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="425"/>
         <source>Target suffix:</source>
         <translation>目标后缀：</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="414"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="428"/>
         <source>Resource path separator:</source>
         <translation>资源路径分隔符:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="416"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="430"/>
         <source>Use HTML input</source>
         <translation>使用 HTML 输入</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="423"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="437"/>
         <source>Target page scrollable</source>
         <translation>目标页面可滚动</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="428"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="442"/>
         <source>Command:</source>
         <translation>命令：</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="459"/>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="476"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="473"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="490"/>
         <source>Export</source>
         <translation>导出</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="462"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="476"/>
         <source>Open Output Dir</source>
         <translation>打开输出目录</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="659"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="675"/>
         <source>New Custom Export Scheme</source>
         <translation>新建自定义导出方案</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="659"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="675"/>
         <source>Scheme name:</source>
         <translation>方案名字:</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="665"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="681"/>
         <source>Name conflicts with existing scheme.</source>
         <translation>名字和已有方案冲突。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="719"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="735"/>
         <source>Portrait</source>
         <translation>纵向</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="719"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="735"/>
         <source>Landscape</source>
         <translation>横向</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="723"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="739"/>
         <source>vnote_exports</source>
         <translation>vnote导出</translation>
     </message>
     <message>
-        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="741"/>
+        <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="757"/>
         <source>Export finished: %1 file(s)</source>
         <translation>导出完成：%1 个文件</translation>
     </message>
@@ -3001,8 +3032,8 @@ Backup file last modified time: %2</source>
         <translation type="vanished">跳过非基于文件的缓冲区(%1)。</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="38"/>
-        <location filename="../../../export/exporter.cpp" line="62"/>
+        <location filename="../../../export/exporter.cpp" line="67"/>
+        <location filename="../../../export/exporter.cpp" line="91"/>
         <source>Failed to create output folder (%1).</source>
         <translation>无法创建输出文件夹(%1)。</translation>
     </message>
@@ -3011,32 +3042,40 @@ Backup file last modified time: %2</source>
         <translation type="vanished">格式%1不支持导出为Markdown。</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="81"/>
-        <location filename="../../../export/exporter.cpp" line="171"/>
-        <location filename="../../../export/exporter.cpp" line="221"/>
-        <location filename="../../../export/exporter.cpp" line="276"/>
+        <location filename="../../../export/exporter.cpp" line="109"/>
+        <location filename="../../../export/exporter.cpp" line="199"/>
+        <location filename="../../../export/exporter.cpp" line="249"/>
+        <location filename="../../../export/exporter.cpp" line="349"/>
         <source>Failed to create output folder under (%1).</source>
         <translation>无法在(%1)中创建输出文件夹。</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="112"/>
+        <location filename="../../../export/exporter.cpp" line="140"/>
+        <location filename="../../../export/exporter.cpp" line="276"/>
         <source>Failed to read file (%1): %2</source>
         <translation>读取文件失败（%1）：%2</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="181"/>
+        <location filename="../../../export/exporter.cpp" line="209"/>
         <source>Failed to export markdown due to empty content and file path.</source>
         <translation>内容和文件路径均为空，无法导出 Markdown。</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="260"/>
-        <location filename="../../../export/exporter.cpp" line="336"/>
+        <location filename="../../../export/exporter.cpp" line="254"/>
+        <location filename="../../../export/exporter.cpp" line="409"/>
         <source>all_in_one_export</source>
         <translation>多合一导出</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="264"/>
-        <location filename="../../../export/exporter.cpp" line="340"/>
+        <location filename="../../../export/exporter.cpp" line="287"/>
+        <location filename="../../../export/exporter.cpp" line="333"/>
+        <source>Rendering combined PDF...</source>
+        <translation>正在渲染合并 PDF...</translation>
+    </message>
+    <message>
+        <location filename="../../../export/exporter.cpp" line="294"/>
+        <location filename="../../../export/exporter.cpp" line="337"/>
+        <location filename="../../../export/exporter.cpp" line="413"/>
         <source>Exported to (%1).</source>
         <translation>输出到(%1)。</translation>
     </message>
@@ -3045,22 +3084,22 @@ Backup file last modified time: %2</source>
         <translation type="vanished">无法加载节点(%1)(%2)。</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="142"/>
+        <location filename="../../../export/exporter.cpp" line="170"/>
         <source>Unknown target format %1.</source>
         <translation>未知的目标格式%1。</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="148"/>
+        <location filename="../../../export/exporter.cpp" line="176"/>
         <source>File (%1) exported to (%2)</source>
         <translation>文件(%1)已导出为(%2)</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="150"/>
+        <location filename="../../../export/exporter.cpp" line="178"/>
         <source>Failed to export file (%1)</source>
         <translation>无法导出文件(%1)</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="524"/>
+        <location filename="../../../export/exporter.cpp" line="597"/>
         <source>Custom command: %1</source>
         <translation>自定义命令: %1</translation>
     </message>
@@ -3069,9 +3108,9 @@ Backup file last modified time: %2</source>
         <translation type="vanished">笔记本_%1</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="227"/>
-        <location filename="../../../export/exporter.cpp" line="286"/>
-        <location filename="../../../export/exporter.cpp" line="451"/>
+        <location filename="../../../export/exporter.cpp" line="301"/>
+        <location filename="../../../export/exporter.cpp" line="359"/>
+        <location filename="../../../export/exporter.cpp" line="524"/>
         <source>Failed to create temporary directory to hold HTML files.</source>
         <translation>无法创建临时目录存放HTML文件。</translation>
     </message>
@@ -3080,7 +3119,7 @@ Backup file last modified time: %2</source>
         <translation type="vanished">格式%1不支持导出为HTML。</translation>
     </message>
     <message>
-        <location filename="../../../export/exporter.cpp" line="406"/>
+        <location filename="../../../export/exporter.cpp" line="479"/>
         <source>Asked to stop. Aborting.</source>
         <translation>用户取消。正在终止。</translation>
     </message>
@@ -4590,8 +4629,8 @@ Remove them from the configuration?</source>
         <translation>%1仍然在此运行。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/mainwindow2.cpp" line="554"/>
-        <location filename="../../../widgets/mainwindow2.cpp" line="565"/>
+        <location filename="../../../widgets/mainwindow2.cpp" line="567"/>
+        <location filename="../../../widgets/mainwindow2.cpp" line="578"/>
         <source>Global</source>
         <translation>全局</translation>
     </message>
@@ -6799,148 +6838,148 @@ This will re-scan all files and rebuild the metadata cache from the filesystem.<
         <translation>为“%1”重建数据库失败。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="604"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="608"/>
         <source>New notebook from folder dialog is being migrated to use dependency injection.</source>
         <translation>从文件夹新建笔记本对话框正在迁移为依赖注入。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="610"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="614"/>
         <source>Select Notebook Root Folder</source>
         <translation>选择笔记本根文件夹</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="662"/>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="674"/>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="804"/>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="815"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="666"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="678"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="808"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="819"/>
         <source>Please first create a notebook to hold your data.</source>
         <translation>请先创建一个笔记本来保存数据。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="688"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="692"/>
         <source>Please set up quick note schemes in the Settings dialog first.</source>
         <translation>请先在设置对话框中设置快速笔记方案。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="694"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="698"/>
         <source>New Quick Note</source>
         <translation>新建快速笔记</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="723"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="727"/>
         <source>The quick note folder path (%1) is not within any open notebook.</source>
         <translation>快速笔记文件夹路径（%1）不在任何已打开笔记本中。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="742"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="746"/>
         <source>The quick note should be created within a notebook.</source>
         <translation>快速笔记应该在一个笔记本内进行创建。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="770"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="774"/>
         <source>Failed to create quick note from scheme (%1).</source>
         <translation>通过方案（%1）创建快速笔记失败。</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="943"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="947"/>
         <source>Delete Permanently</source>
         <translation>永久删除</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="943"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="947"/>
         <source>Delete</source>
         <translation>删除</translation>
     </message>
     <message numerus="yes">
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="947"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="951"/>
         <source>Permanently delete %n node(s)? This cannot be undone.</source>
         <translation>
             <numerusform>永久删除 %n 个节点？此操作无法撤销。</numerusform>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="949"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="953"/>
         <source>Move %n node(s) to recycle bin?</source>
         <translation>
             <numerusform>将 %n 个节点移到回收站？</numerusform>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="968"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="972"/>
         <source>Remove %n node(s) from notebook index? Files will remain on disk.</source>
         <translation>
             <numerusform>从笔记本索引移除 %n 个节点？文件会保留在磁盘上。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="971"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="975"/>
         <source>Remove From Notebook</source>
         <translation>从笔记本移除</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="982"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="986"/>
         <source>Import Files</source>
         <translation>导入文件</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="982"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="986"/>
         <source>All Files (*)</source>
         <translation>所有文件 (*)</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="1034"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="1035"/>
         <source>Name: %1
 </source>
         <translation>名称：%1
 </translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="1035"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="1036"/>
         <source>Path: %1
 </source>
         <translation>路径：%1
 </translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="1036"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="1037"/>
         <source>Type: %1
 </source>
         <translation>类型：%1
 </translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="1036"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="1037"/>
         <source>Folder</source>
         <translation>文件夹</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="1036"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="1037"/>
         <source>Note</source>
         <translation>笔记</translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="1037"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="1038"/>
         <source>Created: %1
 </source>
         <translation>创建时间：%1
 </translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="1038"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="1039"/>
         <source>Modified: %1
 </source>
         <translation>修改时间：%1
 </translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="1041"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="1042"/>
         <source>Children: %1
 </source>
         <translation>子项：%1
 </translation>
     </message>
     <message>
-        <location filename="../../../widgets/notebookexplorer2.cpp" line="1045"/>
+        <location filename="../../../widgets/notebookexplorer2.cpp" line="1046"/>
         <source>Tags: %1
 </source>
         <translation>标签: %1
@@ -10325,12 +10364,13 @@ Backup file last modified time: %2</source>
 <context>
     <name>vnotex::WebViewExporter</name>
     <message>
-        <location filename="../../../export/webviewexporter.cpp" line="540"/>
+        <location filename="../../../export/webviewexporter.cpp" line="346"/>
+        <location filename="../../../export/webviewexporter.cpp" line="629"/>
         <source>Table of Contents</source>
         <translation>目录</translation>
     </message>
     <message>
-        <location filename="../../../export/webviewexporter.cpp" line="767"/>
+        <location filename="../../../export/webviewexporter.cpp" line="932"/>
         <source>Copy output file (%1) to (%2).</source>
         <translation>复制输出文件(%1)为(%2)。</translation>
     </message>

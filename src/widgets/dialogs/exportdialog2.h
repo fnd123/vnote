@@ -98,6 +98,7 @@ private:
   // PDF page.
   QPushButton *m_pageLayoutBtn = nullptr;
   QCheckBox *m_addTableOfContentsCheck = nullptr;
+  QCheckBox *m_addPdfOutlineCheck = nullptr;
   QCheckBox *m_useWkhtmltopdfCheck = nullptr;
   QLineEdit *m_wkhtmltopdfExePathEdit = nullptr;
   QLineEdit *m_wkhtmltopdfArgsEdit = nullptr;

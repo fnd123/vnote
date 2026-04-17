@@ -1,6 +1,7 @@
 #ifndef EXPORTCONTEXT_H
 #define EXPORTCONTEXT_H
 
+#include <QList>
 #include <QString>
 
 #include <core/nodeidentifier.h>
@@ -17,6 +18,7 @@ struct ExportContext {
   QString bufferContent;          // Live content from ViewWindow2::getLatestContent()
   QString bufferName;             // Name of the open buffer (display/output naming)
   QString bufferPath;             // Resolved absolute path of the open buffer, if any
+  QList<NodeIdentifier> selectedNodeIds; // Selected notebook nodes for multi-file export
   ExportSource presetSource = ExportSource::CurrentBuffer; // Pre-selected source
 
   bool isValid() const { return currentNodeId.isValid(); }

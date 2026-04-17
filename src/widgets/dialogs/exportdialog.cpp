@@ -609,8 +609,13 @@ QWidget *ExportDialog::getPdfAdvancedSettings() {
 
     {
       m_addTableOfContentsCheckBox =
-          WidgetsFactory::createCheckBox(tr("Add PDF outline"), widget);
+          WidgetsFactory::createCheckBox(tr("Add visible table of contents"), widget);
       layout->addRow(m_addTableOfContentsCheckBox);
+    }
+
+    {
+      m_addPdfOutlineCheckBox = WidgetsFactory::createCheckBox(tr("Add PDF outline"), widget);
+      layout->addRow(m_addPdfOutlineCheckBox);
     }
 
     {
@@ -632,9 +637,6 @@ QWidget *ExportDialog::getPdfAdvancedSettings() {
     {
       m_allInOneCheckBox = WidgetsFactory::createCheckBox(tr("All-in-One"), widget);
       m_allInOneCheckBox->setToolTip(tr("Export all source files into one file"));
-      m_allInOneCheckBox->setEnabled(false);
-      connect(m_useWkhtmltopdfCheckBox, &QCheckBox::stateChanged, this,
-              [this](int p_state) { m_allInOneCheckBox->setEnabled(p_state == Qt::Checked); });
       layout->addRow(m_allInOneCheckBox);
     }
 
@@ -780,6 +782,7 @@ void ExportDialog::restoreFields(const ExportPdfOption &p_option) {
   updatePageLayoutButtonLabel();
 
   m_addTableOfContentsCheckBox->setChecked(p_option.m_addTableOfContents);
+  m_addPdfOutlineCheckBox->setChecked(p_option.m_addPdfOutline);
   m_useWkhtmltopdfCheckBox->setChecked(p_option.m_useWkhtmltopdf);
   m_allInOneCheckBox->setChecked(p_option.m_allInOne);
   m_wkhtmltopdfExePathLineEdit->setText(p_option.m_wkhtmltopdfExePath);
@@ -789,6 +792,7 @@ void ExportDialog::restoreFields(const ExportPdfOption &p_option) {
 void ExportDialog::saveFields(ExportPdfOption &p_option) {
   p_option.m_layout = m_pageLayout;
   p_option.m_addTableOfContents = m_addTableOfContentsCheckBox->isChecked();
+  p_option.m_addPdfOutline = m_addPdfOutlineCheckBox->isChecked();
   p_option.m_useWkhtmltopdf = m_useWkhtmltopdfCheckBox->isChecked();
   p_option.m_allInOne = m_allInOneCheckBox->isChecked();
   p_option.m_wkhtmltopdfExePath = m_wkhtmltopdfExePathLineEdit->text();

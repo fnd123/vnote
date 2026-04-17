@@ -131,6 +131,47 @@ void ExportController::doExport(const ExportOption &p_option, const ExportContex
         break;
       }
 
+      case ExportSource::SelectedNodes: {
+        if (p_context.selectedNodeIds.isEmpty()) {
+          emit logRequested(tr("No selected nodes available for export."));
+          break;
+        }
+
+        QVector<ExportFileInfo> files;
+        for (const auto &nodeId : p_context.selectedNodeIds) {
+          if (!nodeId.isValid()) {
+            continue;
+          }
+
+          const auto relativePath = normalizedRelativePath(nodeId.relativePath);
+          const auto filePath = notebookService->buildAbsolutePath(nodeId.notebookId, relativePath);
+          if (filePath.isEmpty()) {
+            emit logRequested(tr("Failed to resolve file path for (%1).").arg(relativePath));
+            continue;
+          }
+
+          if (QFileInfo(filePath).isDir()) {
+            collectExportFiles(nodeId.notebookId, relativePath, p_option.m_recursive,
+                               p_option.m_exportAttachments, files);
+            continue;
+          }
+
+          ExportFileInfo info;
+          info.filePath = filePath;
+          info.fileName = QFileInfo(filePath).fileName();
+          info.resourcePath = QFileInfo(filePath).absolutePath();
+          info.attachmentFolderPath =
+              p_option.m_exportAttachments
+                  ? notebookService->getAttachmentsFolder(nodeId.notebookId, relativePath)
+                  : QString();
+          info.isMarkdown = isMarkdownFile(filePath);
+          files.append(info);
+        }
+
+        outputFiles = exporter->doExportBatch(p_option, files, tr("selected_export"));
+        break;
+      }
+
       case ExportSource::CurrentNotebook: {
         QString notebookId = p_context.notebookId;
         if (notebookId.isEmpty()) {

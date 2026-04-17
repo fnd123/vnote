@@ -78,6 +78,7 @@ ExportPdfOption::ExportPdfOption()
 QJsonObject ExportPdfOption::toJson() const {
   QJsonObject obj;
   obj["addTableOfContents"] = m_addTableOfContents;
+  obj["addPdfOutline"] = m_addPdfOutline;
   obj["useWkhtmltopdf"] = m_useWkhtmltopdf;
   obj["allInOne"] = m_allInOne;
   obj["wkhtmltopdfExePath"] = m_wkhtmltopdfExePath;
@@ -91,7 +92,14 @@ void ExportPdfOption::fromJson(const QJsonObject &p_obj) {
     return;
   }
 
-  m_addTableOfContents = p_obj["addTableOfContents"].toBool(true);
+  if (p_obj.contains(QStringLiteral("addPdfOutline"))) {
+    m_addTableOfContents = p_obj["addTableOfContents"].toBool();
+    m_addPdfOutline = p_obj["addPdfOutline"].toBool(true);
+  } else {
+    // Before splitting visible TOC and PDF outline, addTableOfContents controlled outline export.
+    m_addTableOfContents = false;
+    m_addPdfOutline = p_obj["addTableOfContents"].toBool(true);
+  }
   m_useWkhtmltopdf = p_obj["useWkhtmltopdf"].toBool();
   m_allInOne = p_obj["allInOne"].toBool();
   m_wkhtmltopdfExePath = p_obj["wkhtmltopdfExePath"].toString();
@@ -101,6 +109,7 @@ void ExportPdfOption::fromJson(const QJsonObject &p_obj) {
 
 bool ExportPdfOption::operator==(const ExportPdfOption &p_other) const {
   return m_addTableOfContents == p_other.m_addTableOfContents &&
+         m_addPdfOutline == p_other.m_addPdfOutline &&
          m_useWkhtmltopdf == p_other.m_useWkhtmltopdf && m_allInOne == p_other.m_allInOne &&
          m_wkhtmltopdfExePath == p_other.m_wkhtmltopdfExePath &&
          m_wkhtmltopdfArgs == p_other.m_wkhtmltopdfArgs;

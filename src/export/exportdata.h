@@ -6,7 +6,13 @@
 class QPageLayout;
 
 namespace vnotex {
-enum class ExportSource { CurrentBuffer = 0, CurrentNote, CurrentFolder, CurrentNotebook };
+enum class ExportSource {
+  CurrentBuffer = 0,
+  CurrentNote,
+  CurrentFolder,
+  CurrentNotebook,
+  SelectedNodes
+};
 
 enum class ExportFormat { Markdown = 0, HTML, PDF, Custom };
 
@@ -41,12 +47,15 @@ struct ExportPdfOption {
 
   QSharedPointer<QPageLayout> m_layout;
 
-  // Add TOC at the front.
-  bool m_addTableOfContents = true;
+  // Add visible TOC at the front.
+  bool m_addTableOfContents = false;
+
+  // Add PDF outline/bookmarks.
+  bool m_addPdfOutline = true;
 
   bool m_useWkhtmltopdf = false;
 
-  // Valid only when wkhtmltopdf is used.
+  // Export all source files into one PDF file.
   bool m_allInOne = false;
 
   QString m_wkhtmltopdfExePath;

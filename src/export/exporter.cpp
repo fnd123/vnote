@@ -1,5 +1,7 @@
 #include "exporter.h"
 
+#include <algorithm>
+
 #include <QDir>
 #include <QFileInfo>
 #include <QTemporaryDir>
@@ -12,6 +14,8 @@
 #include <utils/fileutils.h>
 #include <utils/pathutils.h>
 #include <utils/processutils.h>
+
+#include <vtextedit/markdownutils.h>
 
 using namespace vnotex;
 
@@ -26,6 +30,31 @@ static QString makeOutputFolder(const QString &p_outputDir, const QString &p_fol
   }
 
   return outputFolder;
+}
+
+QString convertLocalMarkdownImagesToAbsoluteUrls(QString p_content, const QString &p_basePath) {
+  auto images = vte::MarkdownUtils::fetchImagesFromMarkdownText(
+      p_content, p_basePath, vte::MarkdownLink::TypeFlag::LocalRelativeInternal);
+
+  std::sort(images.begin(), images.end(), [](const vte::MarkdownLink &p_lhs,
+                                             const vte::MarkdownLink &p_rhs) {
+    return p_lhs.m_urlInLinkPos > p_rhs.m_urlInLinkPos;
+  });
+
+  for (const auto &link : images) {
+    if (!QFileInfo::exists(link.m_path)) {
+      continue;
+    }
+
+    p_content.replace(link.m_urlInLinkPos, link.m_urlInLink.size(),
+                      PathUtils::pathToUrl(link.m_path).toString());
+  }
+
+  return p_content;
+}
+
+QString pageBreakMarkdown() {
+  return QStringLiteral("\n\n<div style=\"page-break-after: always;\"></div>\n\n");
 }
 
 QString Exporter::doExportFile(const ExportOption &p_option, const QString &p_content,
@@ -63,8 +92,7 @@ QStringList Exporter::doExportBatch(const ExportOption &p_option,
     return outputFiles;
   }
 
-  if (p_option.m_targetFormat == ExportFormat::PDF && p_option.m_pdfOption.m_useWkhtmltopdf &&
-      p_option.m_pdfOption.m_allInOne) {
+  if (p_option.m_targetFormat == ExportFormat::PDF && p_option.m_pdfOption.m_allInOne) {
     auto file = doExportPdfAllInOne(p_option, p_files, p_batchName);
     if (!file.isEmpty()) {
       outputFiles << file;
@@ -222,6 +250,52 @@ QString Exporter::doExportPdfAllInOne(const ExportOption &p_option,
     return QString();
   }
 
+  auto fileName =
+      FileUtils::generateFileNameWithSequence(outputFolder, tr("all_in_one_export"), "pdf");
+  auto destFilePath = PathUtils::concatenateFilePath(outputFolder, fileName);
+
+  if (!p_option.m_pdfOption.m_useWkhtmltopdf) {
+    QString combinedContent;
+    emit progressUpdated(0, p_files.size());
+    for (int i = 0; i < p_files.size(); ++i) {
+      if (checkAskedToStop()) {
+        return QString();
+      }
+
+      try {
+        auto content = FileUtils::readTextFile(p_files[i].filePath);
+        if (p_files[i].isMarkdown) {
+          content = convertLocalMarkdownImagesToAbsoluteUrls(content, p_files[i].resourcePath);
+        }
+
+        if (!combinedContent.isEmpty()) {
+          combinedContent += pageBreakMarkdown();
+        }
+        combinedContent += content;
+      } catch (const Exception &e) {
+        emit logRequested(tr("Failed to read file (%1): %2")
+                              .arg(p_files[i].filePath, QString::fromUtf8(e.what())));
+      }
+
+      emit progressUpdated(i + 1, p_files.size());
+    }
+
+    if (combinedContent.isEmpty() || checkAskedToStop()) {
+      return QString();
+    }
+
+    emit logRequested(tr("Rendering combined PDF..."));
+    emit progressUpdated(0, 0);
+    const auto outputFile = doExportPdf(p_option, outputFolder, combinedContent, QString(),
+                                        QStringLiteral("all_in_one_export.md"), outputFolder,
+                                        destFilePath,
+                                        QString());
+    if (!outputFile.isEmpty()) {
+      emit logRequested(tr("Exported to (%1).").arg(outputFile));
+    }
+    return outputFile;
+  }
+
   QTemporaryDir tmpDir;
   if (!tmpDir.isValid()) {
     emit logRequested(tr("Failed to create temporary directory to hold HTML files."));
@@ -256,9 +330,8 @@ QString Exporter::doExportPdfAllInOne(const ExportOption &p_option,
     return QString();
   }
 
-  auto fileName =
-      FileUtils::generateFileNameWithSequence(outputFolder, tr("all_in_one_export"), "pdf");
-  auto destFilePath = PathUtils::concatenateFilePath(outputFolder, fileName);
+  emit logRequested(tr("Rendering combined PDF..."));
+  emit progressUpdated(0, 0);
   if (getWebViewExporter(p_option)->htmlToPdfViaWkhtmltopdf(p_option.m_pdfOption, htmlFiles,
                                                             destFilePath)) {
     emit logRequested(tr("Exported to (%1).").arg(destFilePath));

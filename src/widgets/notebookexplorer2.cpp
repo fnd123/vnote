@@ -531,6 +531,10 @@ void NotebookExplorer2::locateNode(const NodeIdentifier &p_nodeId) {
   setCurrentNode(p_nodeId);
 }
 
+QList<NodeIdentifier> NotebookExplorer2::selectedNodeIds() const {
+  return m_nodeExplorer ? m_nodeExplorer->selectedNodeIds() : QList<NodeIdentifier>();
+}
+
 NodeIdentifier NotebookExplorer2::currentNodeId() const {
   return m_nodeExplorer ? m_nodeExplorer->currentNodeId() : NodeIdentifier();
 }

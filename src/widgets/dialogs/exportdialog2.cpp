@@ -114,6 +114,9 @@ QString sourceText(ExportSource p_source, const ExportContext &p_context) {
       return ExportDialog2::tr("Current Notebook (%1)").arg(p_context.notebookId);
     }
     return ExportDialog2::tr("Current Notebook");
+
+  case ExportSource::SelectedNodes:
+    return ExportDialog2::tr("Selected Nodes (%1)").arg(p_context.selectedNodeIds.size());
   }
 
   return ExportDialog2::tr("Unknown Source");
@@ -133,6 +136,9 @@ bool sourceAvailable(ExportSource p_source, const ExportContext &p_context) {
 
   case ExportSource::CurrentNotebook:
     return !p_context.notebookId.isEmpty();
+
+  case ExportSource::SelectedNodes:
+    return !p_context.selectedNodeIds.isEmpty();
   }
 
   return false;
@@ -151,6 +157,9 @@ QString sourceUnavailableReason(ExportSource p_source) {
 
   case ExportSource::CurrentNotebook:
     return ExportDialog2::tr("No current notebook available");
+
+  case ExportSource::SelectedNodes:
+    return ExportDialog2::tr("No selected nodes available");
   }
 
   return QString();
@@ -207,7 +216,7 @@ void ExportDialog2::setupUI() {
   // Row 0: Source + Format.
   m_sourceCombo = WidgetsFactory::createComboBox(optionsGroupBox);
   for (int i = static_cast<int>(ExportSource::CurrentBuffer);
-       i <= static_cast<int>(ExportSource::CurrentNotebook); ++i) {
+       i <= static_cast<int>(ExportSource::SelectedNodes); ++i) {
     auto source = static_cast<ExportSource>(i);
     m_sourceCombo->addItem(sourceText(source, m_context), i);
     const int idx = m_sourceCombo->count() - 1;
@@ -365,8 +374,12 @@ void ExportDialog2::setupUI() {
       updatePageLayoutButtonLabel();
     });
 
-    m_addTableOfContentsCheck = WidgetsFactory::createCheckBox(tr("Add PDF outline"), page);
+    m_addTableOfContentsCheck =
+        WidgetsFactory::createCheckBox(tr("Add visible table of contents"), page);
     layout->addRow(m_addTableOfContentsCheck);
+
+    m_addPdfOutlineCheck = WidgetsFactory::createCheckBox(tr("Add PDF outline"), page);
+    layout->addRow(m_addPdfOutlineCheck);
 
     m_useWkhtmltopdfCheck =
         WidgetsFactory::createCheckBox(tr("Use wkhtmltopdf (outline supported)"), page);
@@ -593,6 +606,7 @@ void ExportDialog2::restorePdfFields(const ExportPdfOption &p_option) {
   updatePageLayoutButtonLabel();
 
   m_addTableOfContentsCheck->setChecked(p_option.m_addTableOfContents);
+  m_addPdfOutlineCheck->setChecked(p_option.m_addPdfOutline);
   m_useWkhtmltopdfCheck->setChecked(p_option.m_useWkhtmltopdf);
   m_wkhtmltopdfExePathEdit->setText(p_option.m_wkhtmltopdfExePath);
   m_wkhtmltopdfArgsEdit->setText(p_option.m_wkhtmltopdfArgs);
@@ -604,6 +618,7 @@ void ExportDialog2::restorePdfFields(const ExportPdfOption &p_option) {
 void ExportDialog2::savePdfFields(ExportPdfOption &p_option) const {
   p_option.m_layout = m_pageLayout;
   p_option.m_addTableOfContents = m_addTableOfContentsCheck->isChecked();
+  p_option.m_addPdfOutline = m_addPdfOutlineCheck->isChecked();
   p_option.m_useWkhtmltopdf = m_useWkhtmltopdfCheck->isChecked();
   p_option.m_wkhtmltopdfExePath = m_wkhtmltopdfExePathEdit->text();
   p_option.m_wkhtmltopdfArgs = m_wkhtmltopdfArgsEdit->text();
@@ -762,7 +777,6 @@ void ExportDialog2::updatePdfWidgetsByWkhtmltopdf() {
   const bool enabled = m_useWkhtmltopdfCheck->isChecked();
   m_wkhtmltopdfExePathEdit->setEnabled(enabled);
   m_wkhtmltopdfArgsEdit->setEnabled(enabled);
-  m_pdfAllInOneCheck->setEnabled(enabled);
 }
 
 void ExportDialog2::updateUiOnExportState(bool p_exporting) {

@@ -202,16 +202,12 @@ NodeIdentifier TwoColumnsNodeExplorer::currentNodeId() const {
 }
 
 QList<NodeIdentifier> TwoColumnsNodeExplorer::selectedNodeIds() const {
-  QList<NodeIdentifier> result;
-
-  // Combine selections from both views, preferring file view
-  if (m_fileView && m_fileView->hasFocus()) {
-    result = m_fileView->selectedNodeIds();
-  } else if (m_folderView) {
-    result = m_folderView->selectedNodeIds();
+  const auto fileNodes = m_fileView ? m_fileView->selectedNodeIds() : QList<NodeIdentifier>();
+  if (!fileNodes.isEmpty()) {
+    return fileNodes;
   }
 
-  return result;
+  return m_folderView ? m_folderView->selectedNodeIds() : QList<NodeIdentifier>();
 }
 
 void TwoColumnsNodeExplorer::selectNode(const NodeIdentifier &p_nodeId) {

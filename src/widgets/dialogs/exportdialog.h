@@ -163,6 +163,8 @@ private:
 
   QCheckBox *m_addTableOfContentsCheckBox = nullptr;
 
+  QCheckBox *m_addPdfOutlineCheckBox = nullptr;
+
   QCheckBox *m_useWkhtmltopdfCheckBox = nullptr;
 
   QCheckBox *m_allInOneCheckBox = nullptr;

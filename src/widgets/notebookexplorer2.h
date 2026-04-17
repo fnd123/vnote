@@ -2,6 +2,7 @@
 #define NOTEBOOKEXPLORER2_H
 
 #include <QFrame>
+#include <QList>
 #include <QVBoxLayout>
 
 #include <core/global.h>
@@ -87,6 +88,8 @@ public slots:
 
   // Locate a node in the explorer (switch notebook if needed, expand, select, scroll).
   void locateNode(const NodeIdentifier &p_nodeId);
+
+  QList<NodeIdentifier> selectedNodeIds() const;
 
 private slots:
   // Node activation — opens the file via BufferService
