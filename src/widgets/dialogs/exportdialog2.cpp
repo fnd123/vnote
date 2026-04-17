@@ -8,6 +8,8 @@
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDialogButtonBox>
+#include <QDir>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -23,6 +25,7 @@
 #include <QPrinter>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QSet>
 #include <QStackedLayout>
 #include <QStandardItemModel>
 #include <QTextCursor>
@@ -200,16 +203,54 @@ QCollator newFolderCollator() {
   return collator;
 }
 
-QStringList sortedFolderNames(const QJsonObject &p_children) {
-  QStringList names;
+void appendFolderNames(const QJsonObject &p_children, QStringList &p_names, QSet<QString> &p_seen) {
   const auto folders = p_children.value(QStringLiteral("folders")).toArray();
-  names.reserve(folders.size());
   for (const auto &folder : folders) {
     const auto name = folder.toObject().value(QStringLiteral("name")).toString();
-    if (!name.isEmpty()) {
-      names.append(name);
+    if (!name.isEmpty() && !p_seen.contains(name)) {
+      p_names.append(name);
+      p_seen.insert(name);
     }
   }
+}
+
+bool shouldSkipFileSystemFolder(const QFileInfo &p_info, const QString &p_assetsFolder) {
+  const auto name = p_info.fileName();
+  if (!p_info.isDir() || name.isEmpty() || name.startsWith(QLatin1Char('.')) ||
+      name == QStringLiteral("vx_notebook") || name == QStringLiteral("vx.json") ||
+      name.endsWith(QStringLiteral(".vswp"))) {
+    return true;
+  }
+
+  return !p_assetsFolder.isEmpty() && !p_assetsFolder.contains(QLatin1Char('/')) &&
+         name == p_assetsFolder;
+}
+
+void appendFileSystemFolderNames(const QString &p_folderPath, const QString &p_assetsFolder,
+                                 QStringList &p_names, QSet<QString> &p_seen) {
+  QDir dir(p_folderPath);
+  if (!dir.exists()) {
+    return;
+  }
+
+  const auto infos =
+      dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks, QDir::NoSort);
+  for (const auto &info : infos) {
+    const auto name = info.fileName();
+    if (!shouldSkipFileSystemFolder(info, p_assetsFolder) && !p_seen.contains(name)) {
+      p_names.append(name);
+      p_seen.insert(name);
+    }
+  }
+}
+
+QStringList sortedFolderNames(const QJsonObject &p_children, const QJsonObject &p_externalChildren,
+                              const QString &p_folderPath, const QString &p_assetsFolder) {
+  QStringList names;
+  QSet<QString> seen;
+  appendFolderNames(p_children, names, seen);
+  appendFolderNames(p_externalChildren, names, seen);
+  appendFileSystemFolderNames(p_folderPath, p_assetsFolder, names, seen);
 
   auto collator = newFolderCollator();
   std::sort(names.begin(), names.end(), [&collator](const QString &p_lhs,
@@ -226,7 +267,13 @@ void collectFolderIds(NotebookCoreService *p_notebookService, const QString &p_n
   }
 
   const auto children = p_notebookService->listFolderChildren(p_notebookId, p_folderPath);
-  for (const auto &name : sortedFolderNames(children)) {
+  const auto externalChildren = p_notebookService->listFolderExternal(p_notebookId, p_folderPath);
+  const auto absoluteFolderPath = p_notebookService->buildAbsolutePath(p_notebookId, p_folderPath);
+  const auto config = p_notebookService->getNotebookConfig(p_notebookId);
+  const auto assetsFolder =
+      config.value(QStringLiteral("assetsFolder")).toString(QStringLiteral("vx_assets"));
+  for (const auto &name :
+       sortedFolderNames(children, externalChildren, absoluteFolderPath, assetsFolder)) {
     const auto childPath =
         p_folderPath.isEmpty() ? name : p_folderPath + QLatin1Char('/') + name;
     p_folders.append(NodeIdentifier{p_notebookId, childPath});

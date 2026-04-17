@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QSet>
 #include <QWidget>
 #include <exception>
 
@@ -33,26 +34,77 @@ QCollator newExportCollator() {
   return collator;
 }
 
-QVector<ExportChildEntry> sortedChildEntries(const QJsonObject &p_children) {
-  QVector<ExportChildEntry> entries;
-
+void appendChildEntries(const QJsonObject &p_children, QVector<ExportChildEntry> &p_entries,
+                        QSet<QString> &p_seen) {
   const auto fileArray = p_children.value(QStringLiteral("files")).toArray();
-  entries.reserve(fileArray.size());
   for (const auto &fileValue : fileArray) {
     const auto name = fileValue.toObject().value(QStringLiteral("name")).toString();
-    if (!name.isEmpty()) {
-      entries.append(ExportChildEntry{name, false});
+    const auto key = QStringLiteral("f:") + name;
+    if (!name.isEmpty() && !p_seen.contains(key)) {
+      p_entries.append(ExportChildEntry{name, false});
+      p_seen.insert(key);
     }
   }
 
   const auto folderArray = p_children.value(QStringLiteral("folders")).toArray();
-  entries.reserve(entries.size() + folderArray.size());
   for (const auto &folderValue : folderArray) {
     const auto name = folderValue.toObject().value(QStringLiteral("name")).toString();
-    if (!name.isEmpty()) {
-      entries.append(ExportChildEntry{name, true});
+    const auto key = QStringLiteral("d:") + name;
+    if (!name.isEmpty() && !p_seen.contains(key)) {
+      p_entries.append(ExportChildEntry{name, true});
+      p_seen.insert(key);
     }
   }
+}
+
+bool shouldSkipFileSystemEntry(const QFileInfo &p_info, const QString &p_assetsFolder) {
+  const auto name = p_info.fileName();
+  if (name.isEmpty() || name.startsWith(QLatin1Char('.')) || name == QStringLiteral("vx.json") ||
+      name == QStringLiteral("vx_notebook") || name.endsWith(QStringLiteral(".vswp"))) {
+    return true;
+  }
+
+  return !p_assetsFolder.isEmpty() && !p_assetsFolder.contains(QLatin1Char('/')) &&
+         name == p_assetsFolder;
+}
+
+void appendFileSystemChildEntries(const QString &p_folderPath, const QString &p_assetsFolder,
+                                  QVector<ExportChildEntry> &p_entries, QSet<QString> &p_seen) {
+  QDir dir(p_folderPath);
+  if (!dir.exists()) {
+    return;
+  }
+
+  const auto infos =
+      dir.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot | QDir::NoSymLinks,
+                        QDir::NoSort);
+  for (const auto &info : infos) {
+    if (shouldSkipFileSystemEntry(info, p_assetsFolder)) {
+      continue;
+    }
+
+    const bool isFolder = info.isDir();
+    if (!isFolder && !info.isFile()) {
+      continue;
+    }
+
+    const auto key = (isFolder ? QStringLiteral("d:") : QStringLiteral("f:")) + info.fileName();
+    if (!p_seen.contains(key)) {
+      p_entries.append(ExportChildEntry{info.fileName(), isFolder});
+      p_seen.insert(key);
+    }
+  }
+}
+
+QVector<ExportChildEntry> sortedChildEntries(const QJsonObject &p_children,
+                                             const QJsonObject &p_externalChildren,
+                                             const QString &p_folderPath,
+                                             const QString &p_assetsFolder) {
+  QVector<ExportChildEntry> entries;
+  QSet<QString> seen;
+  appendChildEntries(p_children, entries, seen);
+  appendChildEntries(p_externalChildren, entries, seen);
+  appendFileSystemChildEntries(p_folderPath, p_assetsFolder, entries, seen);
 
   auto collator = newExportCollator();
   std::sort(entries.begin(), entries.end(), [&collator](const ExportChildEntry &p_lhs,
@@ -389,8 +441,14 @@ void ExportController::collectExportFiles(const QString &p_notebookId, const QSt
 
   const auto folderPath = normalizedRelativePath(p_folderPath);
   const auto children = notebookService->listFolderChildren(p_notebookId, folderPath);
+  const auto externalChildren = notebookService->listFolderExternal(p_notebookId, folderPath);
+  const auto absoluteFolderPath = notebookService->buildAbsolutePath(p_notebookId, folderPath);
+  const auto config = notebookService->getNotebookConfig(p_notebookId);
+  const auto assetsFolder =
+      config.value(QStringLiteral("assetsFolder")).toString(QStringLiteral("vx_assets"));
 
-  const auto entries = sortedChildEntries(children);
+  const auto entries = sortedChildEntries(children, externalChildren, absoluteFolderPath,
+                                          assetsFolder);
   for (const auto &entry : entries) {
     const auto relativePath =
         folderPath.isEmpty() ? entry.m_name : folderPath + QLatin1Char('/') + entry.m_name;

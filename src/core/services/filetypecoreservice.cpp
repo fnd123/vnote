@@ -12,14 +12,39 @@
 
 using namespace vnotex;
 
+namespace {
+
+int legacyFileType(const QString &p_typeName) {
+  if (p_typeName == QStringLiteral("Markdown")) {
+    return FileType::Markdown;
+  }
+  if (p_typeName == QStringLiteral("Text")) {
+    return FileType::Text;
+  }
+  if (p_typeName == QStringLiteral("PDF")) {
+    return FileType::Pdf;
+  }
+  if (p_typeName == QStringLiteral("MindMap")) {
+    return FileType::MindMap;
+  }
+  if (p_typeName == QStringLiteral("Others")) {
+    return FileType::Others;
+  }
+
+  return -1;
+}
+
+} // namespace
+
 FileTypeCoreService::FileTypeCoreService(VxCoreContextHandle p_context, const QString &p_locale,
-                                 QObject *p_parent)
+                                         QObject *p_parent)
     : QObject(p_parent), m_context(p_context), m_locale(p_locale) {}
 
 FileType FileTypeCoreService::parseFileType(const QJsonObject &p_obj) const {
   FileType type;
 
   type.m_typeName = p_obj["name"].toString();
+  type.m_type = legacyFileType(type.m_typeName);
   type.m_isNewable = p_obj["isNewable"].toBool();
 
   // Get default displayName from vxcore

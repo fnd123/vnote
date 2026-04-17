@@ -104,6 +104,7 @@ void TestFileTypeService::testGetAllFileTypesContainExpectedTypes() {
 void TestFileTypeService::testGetFileTypeBySuffixMd() {
   FileType type = m_service->getFileTypeBySuffix(QStringLiteral("md"));
   QCOMPARE(type.m_typeName, QStringLiteral("Markdown"));
+  QCOMPARE(type.m_type, static_cast<int>(FileType::Markdown));
 }
 
 void TestFileTypeService::testGetFileTypeBySuffixTxt() {

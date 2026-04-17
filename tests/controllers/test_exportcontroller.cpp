@@ -1,5 +1,6 @@
 #include <QtTest>
 
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QMetaObject>
@@ -142,9 +143,15 @@ QString Exporter::doExportFile(const ExportOption &p_option, const QString &p_co
   return outputPath;
 }
 
-QStringList Exporter::doExportBatch(const ExportOption &, const QVector<ExportFileInfo> &,
+QStringList Exporter::doExportBatch(const ExportOption &, const QVector<ExportFileInfo> &p_files,
                                     const QString &) {
-  return QStringList();
+  QStringList files;
+  for (const auto &file : p_files) {
+    if (!file.isSectionHeading) {
+      files << file.filePath;
+    }
+  }
+  return files;
 }
 
 void Exporter::stop() {}
@@ -164,6 +171,7 @@ private slots:
   void testMarkdownExportContentBased();
   void testMarkdownExportExternalBuffer();
   void testMarkdownExportDiskBased();
+  void testAllInOneFolderExportIncludesExternalFilesystemFiles();
   void testEmptyContextHandling();
 
 private:
@@ -194,6 +202,7 @@ private:
   VxCoreContextHandle m_ctx = nullptr;
   TempDirFixture m_tempDir;
   QString m_notebookId;
+  QString m_notebookRoot;
 };
 
 void TestExportController::initTestCase() {
@@ -206,7 +215,8 @@ void TestExportController::initTestCase() {
   QVERIFY(m_tempDir.isValid());
 
   char *notebookId = nullptr;
-  QByteArray notebookPath = m_tempDir.filePath(QStringLiteral("controller_notebook")).toUtf8();
+  m_notebookRoot = m_tempDir.filePath(QStringLiteral("controller_notebook"));
+  QByteArray notebookPath = m_notebookRoot.toUtf8();
   err = vxcore_notebook_create(m_ctx, notebookPath.constData(), "{\"name\":\"ControllerNotebook\"}",
                                VXCORE_NOTEBOOK_BUNDLED, &notebookId);
   QVERIFY2(err == VXCORE_OK, "Failed to create test notebook");
@@ -381,6 +391,52 @@ void TestExportController::testMarkdownExportDiskBased() {
   QVERIFY(exportedFile.open(QIODevice::ReadOnly));
   const QString exportedContent = QString::fromUtf8(exportedFile.readAll());
   QVERIFY(exportedContent.contains(QStringLiteral("# Disk Content")));
+}
+
+void TestExportController::testAllInOneFolderExportIncludesExternalFilesystemFiles() {
+  ControllerFixture fixture(m_ctx);
+
+  QDir rootDir(m_notebookRoot);
+  QVERIFY(rootDir.mkpath(QStringLiteral("external_folder/sub")));
+
+  QFile first(rootDir.filePath(QStringLiteral("external_folder/2.md")));
+  QVERIFY(first.open(QIODevice::WriteOnly));
+  first.write("# External 2\n");
+  first.close();
+
+  QFile second(rootDir.filePath(QStringLiteral("external_folder/sub/1.md")));
+  QVERIFY(second.open(QIODevice::WriteOnly));
+  second.write("# External 1\n");
+  second.close();
+
+  QFile ignored(rootDir.filePath(QStringLiteral("external_folder/sub/ignored.txt")));
+  QVERIFY(ignored.open(QIODevice::WriteOnly));
+  ignored.write("not markdown\n");
+  ignored.close();
+
+  TempDirFixture outputDir;
+  QVERIFY(outputDir.isValid());
+
+  vnotex::ExportContext context;
+  context.currentFolderId = vnotex::NodeIdentifier{m_notebookId, QStringLiteral("external_folder")};
+  context.presetSource = vnotex::ExportSource::CurrentFolder;
+
+  vnotex::ExportOption option;
+  option.m_source = vnotex::ExportSource::CurrentFolder;
+  option.m_targetFormat = vnotex::ExportFormat::PDF;
+  option.m_outputDir = outputDir.path();
+  option.m_recursive = true;
+  option.m_exportAttachments = false;
+  option.m_pdfOption.m_allInOne = true;
+
+  QSignalSpy finishedSpy(fixture.controller, &vnotex::ExportController::exportFinished);
+  fixture.controller->doExport(option, context);
+
+  QCOMPARE(finishedSpy.count(), 1);
+  const QStringList outputFiles = finishedSpy.takeFirst().at(0).toStringList();
+  QCOMPARE(outputFiles.size(), 2);
+  QVERIFY(outputFiles.at(0).endsWith(QStringLiteral("external_folder/2.md")));
+  QVERIFY(outputFiles.at(1).endsWith(QStringLiteral("external_folder/sub/1.md")));
 }
 
 void TestExportController::testEmptyContextHandling() {
