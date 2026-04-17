@@ -91,7 +91,7 @@ void ExportPdfOption::fromJson(const QJsonObject &p_obj) {
     return;
   }
 
-  m_addTableOfContents = p_obj["addTableOfContents"].toBool();
+  m_addTableOfContents = p_obj["addTableOfContents"].toBool(true);
   m_useWkhtmltopdf = p_obj["useWkhtmltopdf"].toBool();
   m_allInOne = p_obj["allInOne"].toBool();
   m_wkhtmltopdfExePath = p_obj["wkhtmltopdfExePath"].toString();

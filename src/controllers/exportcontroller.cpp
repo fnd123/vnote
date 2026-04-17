@@ -48,14 +48,27 @@ void ExportController::doExport(const ExportOption &p_option, const ExportContex
     try {
       switch (p_option.m_source) {
       case ExportSource::CurrentBuffer: {
-        if (!p_context.currentNodeId.isValid()) {
+        if (!p_context.currentNodeId.isValid() && p_context.bufferPath.isEmpty()) {
           emit logRequested(tr("No current buffer available for export."));
           break;
         }
 
-        const auto relativePath = normalizedRelativePath(p_context.currentNodeId.relativePath);
-        const auto filePath =
-            notebookService->buildAbsolutePath(p_context.currentNodeId.notebookId, relativePath);
+        QString relativePath;
+        QString filePath;
+        QString attachmentFolderPath;
+        if (p_context.currentNodeId.isValid()) {
+          relativePath = normalizedRelativePath(p_context.currentNodeId.relativePath);
+          filePath =
+              notebookService->buildAbsolutePath(p_context.currentNodeId.notebookId, relativePath);
+          attachmentFolderPath =
+              p_option.m_exportAttachments
+                  ? notebookService->getAttachmentsFolder(p_context.currentNodeId.notebookId,
+                                                          relativePath)
+                  : QString();
+        } else {
+          filePath = p_context.bufferPath;
+        }
+
         if (filePath.isEmpty()) {
           emit logRequested(tr("Failed to resolve current buffer path."));
           break;
@@ -68,10 +81,7 @@ void ExportController::doExport(const ExportOption &p_option, const ExportContex
 
         const auto outputFile = exporter->doExportFile(
             p_option, p_context.bufferContent, filePath, fileName,
-            QFileInfo(filePath).absolutePath(),
-            p_option.m_exportAttachments ? notebookService->getAttachmentsFolder(
-                                               p_context.currentNodeId.notebookId, relativePath)
-                                         : QString(),
+            QFileInfo(filePath).absolutePath(), attachmentFolderPath,
             isMarkdownFile(filePath));
         if (!outputFile.isEmpty()) {
           outputFiles.append(outputFile);

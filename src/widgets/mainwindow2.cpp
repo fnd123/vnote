@@ -346,6 +346,7 @@ void MainWindow2::exportNotes() {
     context.bufferName = viewWin->getName();
     const auto &buffer = viewWin->getBuffer();
     context.currentNodeId = buffer.nodeId();
+    context.bufferPath = buffer.resolvedPath();
   }
 
   // Get notebook/folder context from NotebookExplorer2.
@@ -467,6 +468,7 @@ void MainWindow2::setupDocks() {
               if (buffer.nodeId() == p_nodeId) {
                 context.bufferContent = viewWin->getLatestContent();
                 context.bufferName = viewWin->getName();
+                context.bufferPath = buffer.resolvedPath();
               }
             }
 

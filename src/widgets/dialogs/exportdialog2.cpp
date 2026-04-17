@@ -122,7 +122,8 @@ QString sourceText(ExportSource p_source, const ExportContext &p_context) {
 bool sourceAvailable(ExportSource p_source, const ExportContext &p_context) {
   switch (p_source) {
   case ExportSource::CurrentBuffer:
-    return !p_context.bufferContent.isEmpty();
+    return !p_context.bufferContent.isEmpty() || !p_context.bufferPath.isEmpty() ||
+           p_context.currentNodeId.isValid();
 
   case ExportSource::CurrentNote:
     return p_context.currentNodeId.isValid() && !p_context.currentNodeId.relativePath.isEmpty();

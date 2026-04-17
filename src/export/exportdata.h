@@ -42,7 +42,7 @@ struct ExportPdfOption {
   QSharedPointer<QPageLayout> m_layout;
 
   // Add TOC at the front.
-  bool m_addTableOfContents = false;
+  bool m_addTableOfContents = true;
 
   bool m_useWkhtmltopdf = false;
 

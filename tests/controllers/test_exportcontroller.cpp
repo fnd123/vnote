@@ -162,6 +162,7 @@ private slots:
 
   void testConstruction();
   void testMarkdownExportContentBased();
+  void testMarkdownExportExternalBuffer();
   void testMarkdownExportDiskBased();
   void testEmptyContextHandling();
 
@@ -305,6 +306,46 @@ void TestExportController::testMarkdownExportContentBased() {
   QVERIFY(exportedFile.open(QIODevice::ReadOnly));
   const QString exportedContent = QString::fromUtf8(exportedFile.readAll());
   QVERIFY(exportedContent.contains(QStringLiteral("# Hello World")));
+}
+
+void TestExportController::testMarkdownExportExternalBuffer() {
+  ControllerFixture fixture(m_ctx);
+
+  TempDirFixture sourceDir;
+  QVERIFY(sourceDir.isValid());
+  const QString sourcePath = sourceDir.filePath(QStringLiteral("external.md"));
+  QFile sourceFile(sourcePath);
+  QVERIFY(sourceFile.open(QIODevice::WriteOnly));
+  sourceFile.write("# External File\nFrom plain open");
+  sourceFile.close();
+
+  TempDirFixture outputDir;
+  QVERIFY(outputDir.isValid());
+
+  vnotex::ExportContext context;
+  context.bufferPath = sourcePath;
+  context.bufferName = QStringLiteral("external.md");
+  context.presetSource = vnotex::ExportSource::CurrentBuffer;
+
+  vnotex::ExportOption option;
+  option.m_source = vnotex::ExportSource::CurrentBuffer;
+  option.m_targetFormat = vnotex::ExportFormat::Markdown;
+  option.m_outputDir = outputDir.path();
+  option.m_recursive = false;
+  option.m_exportAttachments = false;
+
+  QSignalSpy finishedSpy(fixture.controller, &vnotex::ExportController::exportFinished);
+  fixture.controller->doExport(option, context);
+
+  QCOMPARE(finishedSpy.count(), 1);
+  const QStringList outputFiles = finishedSpy.takeFirst().at(0).toStringList();
+  QVERIFY(!outputFiles.isEmpty());
+
+  QFile exportedFile(outputFiles.first());
+  QVERIFY(exportedFile.exists());
+  QVERIFY(exportedFile.open(QIODevice::ReadOnly));
+  const QString exportedContent = QString::fromUtf8(exportedFile.readAll());
+  QVERIFY(exportedContent.contains(QStringLiteral("# External File")));
 }
 
 void TestExportController::testMarkdownExportDiskBased() {

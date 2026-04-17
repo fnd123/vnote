@@ -5,6 +5,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QTemporaryDir>
+#include <QVector>
 #include <QWebEnginePage>
 #include <QWidget>
 
@@ -66,6 +67,85 @@ QString fillScriptTag(const QString &p_scriptFile) {
   const auto url = PathUtils::pathToUrl(p_scriptFile);
   return QStringLiteral("<script type=\"text/javascript\" src=\"%1\"></script>\n")
       .arg(url.toString());
+}
+
+struct MarkdownHeading {
+  int m_level = 1;
+  QString m_text;
+};
+
+QString cleanedHeadingText(QString p_text) {
+  p_text.remove(QRegularExpression(QStringLiteral("\\s+#+\\s*$")));
+  p_text.replace(QRegularExpression(QStringLiteral("!\\[([^\\]]*)\\]\\([^\\)]*\\)")),
+                 QStringLiteral("\\1"));
+  p_text.replace(QRegularExpression(QStringLiteral("\\[([^\\]]+)\\]\\([^\\)]*\\)")),
+                 QStringLiteral("\\1"));
+  p_text.remove(QRegularExpression(QStringLiteral("[`*_~]")));
+  return p_text.trimmed();
+}
+
+QVector<MarkdownHeading> extractMarkdownHeadings(const QString &p_content) {
+  QVector<MarkdownHeading> headings;
+  bool inFence = false;
+  QChar fenceMarker;
+  const QRegularExpression headingRe(QStringLiteral("^\\s{0,3}(#{1,6})\\s+(.+?)\\s*$"));
+
+  const auto lines = p_content.split(QLatin1Char('\n'));
+  for (const auto &line : lines) {
+    const auto trimmed = line.trimmed();
+    if (trimmed.startsWith(QStringLiteral("```")) || trimmed.startsWith(QStringLiteral("~~~"))) {
+      const auto marker = trimmed[0];
+      if (!inFence) {
+        inFence = true;
+        fenceMarker = marker;
+      } else if (fenceMarker == marker) {
+        inFence = false;
+      }
+      continue;
+    }
+
+    if (inFence) {
+      continue;
+    }
+
+    const auto match = headingRe.match(line);
+    if (!match.hasMatch()) {
+      continue;
+    }
+
+    const auto text = cleanedHeadingText(match.captured(2));
+    if (text.isEmpty()) {
+      continue;
+    }
+
+    MarkdownHeading heading;
+    heading.m_level = match.captured(1).size();
+    heading.m_text = text;
+    headings.append(heading);
+  }
+
+  return headings;
+}
+
+QString buildMarkdownTableOfContents(const QString &p_content, const QString &p_title) {
+  const auto headings = extractMarkdownHeadings(p_content);
+  if (headings.isEmpty()) {
+    return QString();
+  }
+
+  int baseLevel = 6;
+  for (const auto &heading : headings) {
+    baseLevel = qMin(baseLevel, heading.m_level);
+  }
+
+  QString toc = QStringLiteral("## %1\n\n").arg(p_title);
+  for (const auto &heading : headings) {
+    const int indentLevel = qMax(0, heading.m_level - baseLevel);
+    toc += QString(indentLevel * 2, QLatin1Char(' '));
+    toc += QStringLiteral("- %1\n").arg(heading.m_text);
+  }
+
+  return toc.trimmed();
 }
 
 void fillGlobalOptions(QString &p_template, const MarkdownWebGlobalOptions &p_opts) {
@@ -263,11 +343,12 @@ bool vnotex::WebViewExporter::doExport(const ExportOption &p_option, const QStri
   auto textContent = p_content;
   if (p_option.m_targetFormat == ExportFormat::PDF && p_option.m_pdfOption.m_addTableOfContents &&
       !p_option.m_pdfOption.m_useWkhtmltopdf) {
-    // Add `[TOC]` at the beginning.
-    m_viewer->adapter()->setText("[TOC]\n\n" + textContent);
-  } else {
-    m_viewer->adapter()->setText(textContent);
+    const auto toc = buildMarkdownTableOfContents(textContent, tr("Table of Contents"));
+    if (!toc.isEmpty()) {
+      textContent = toc + QStringLiteral("\n\n") + textContent;
+    }
   }
+  m_viewer->adapter()->setText(textContent);
 
   while (!isWebViewReady()) {
     Utils::sleepWait(100);

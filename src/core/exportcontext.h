@@ -16,6 +16,7 @@ struct ExportContext {
   QString notebookId;             // Current notebook
   QString bufferContent;          // Live content from ViewWindow2::getLatestContent()
   QString bufferName;             // Name of the open buffer (display/output naming)
+  QString bufferPath;             // Resolved absolute path of the open buffer, if any
   ExportSource presetSource = ExportSource::CurrentBuffer; // Pre-selected source
 
   bool isValid() const { return currentNodeId.isValid(); }
