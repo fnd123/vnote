@@ -158,7 +158,9 @@ QGroupBox *ExportDialog::setupTargetGroup(QWidget *p_parent) {
   }
 
   {
-    const auto webStyles = VNoteX::getInst().getThemeMgr().getWebStyles();
+    const auto &themeMgr = VNoteX::getInst().getThemeMgr();
+    const auto webStyles = themeMgr.getWebStyles();
+    const auto highlightStyles = themeMgr.getHighlightStyles();
 
     m_renderingStyleComboBox = WidgetsFactory::createComboBox(box);
     layout->addRow(tr("Rendering style:"), m_renderingStyleComboBox);
@@ -168,7 +170,7 @@ QGroupBox *ExportDialog::setupTargetGroup(QWidget *p_parent) {
 
     m_syntaxHighlightStyleComboBox = WidgetsFactory::createComboBox(box);
     layout->addRow(tr("Syntax highlighting style:"), m_syntaxHighlightStyleComboBox);
-    for (const auto &pa : webStyles) {
+    for (const auto &pa : highlightStyles) {
       m_syntaxHighlightStyleComboBox->addItem(pa.first, pa.second);
     }
   }

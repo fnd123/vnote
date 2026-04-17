@@ -460,9 +460,12 @@ void WebViewExporter::prepare(const ExportOption &p_option) {
   HtmlTemplateHelper::MarkdownParas paras;
   auto webStyleFile = p_option.m_renderingStyleFile;
   if (webStyleFile.isEmpty()) {
-    const auto webStyles = themeService->getWebStyles();
-    if (!webStyles.isEmpty()) {
-      webStyleFile = webStyles.constFirst().second;
+    webStyleFile = themeService->getFile(Theme::File::WebStyleSheet);
+    if (webStyleFile.isEmpty()) {
+      const auto webStyles = themeService->getWebStyles();
+      if (!webStyles.isEmpty()) {
+        webStyleFile = webStyles.constFirst().second;
+      }
     }
   }
 

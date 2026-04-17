@@ -90,8 +90,11 @@ public:
   // Reload current theme.
   void refreshCurrentTheme();
 
-  // Get all web stylesheets <DisplayName, FilePath>.
+  // Get all Markdown rendering stylesheets <DisplayName, FilePath>.
   QVector<QPair<QString, QString>> getWebStyles() const;
+
+  // Get all code block highlighting stylesheets <DisplayName, FilePath>.
+  QVector<QPair<QString, QString>> getHighlightStyles() const;
 
 private:
   void loadAvailableThemes();

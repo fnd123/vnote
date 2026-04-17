@@ -62,9 +62,13 @@ public:
 
   void refreshCurrentTheme();
 
-  // Return all web stylesheets available, including those from themes and web styles search paths.
+  // Return all Markdown rendering stylesheets available.
   // <DisplayName, FilePath>.
   QVector<QPair<QString, QString>> getWebStyles() const;
+
+  // Return all code block highlighting stylesheets available.
+  // <DisplayName, FilePath>.
+  QVector<QPair<QString, QString>> getHighlightStyles() const;
 
   static void addSearchPath(const QString &p_path);
 

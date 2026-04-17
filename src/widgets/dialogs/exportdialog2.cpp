@@ -242,12 +242,16 @@ void ExportDialog2::setupUI() {
   commonLayout->addWidget(m_outputDirInput, 1, 1, 1, 3);
 
   // Row 2: Rendering style + Syntax style.
-  const auto webStyles = m_services.get<ThemeService>()->getWebStyles();
+  auto *themeService = m_services.get<ThemeService>();
+  const auto webStyles = themeService->getWebStyles();
+  const auto highlightStyles = themeService->getHighlightStyles();
 
   m_renderingStyleCombo = WidgetsFactory::createComboBox(optionsGroupBox);
   m_syntaxStyleCombo = WidgetsFactory::createComboBox(optionsGroupBox);
   for (const auto &style : webStyles) {
     m_renderingStyleCombo->addItem(style.first, style.second);
+  }
+  for (const auto &style : highlightStyles) {
     m_syntaxStyleCombo->addItem(style.first, style.second);
   }
 
@@ -512,15 +516,11 @@ void ExportDialog2::restoreFields(const ExportOption &p_option) {
   m_recursiveCheck->setChecked(p_option.m_recursive);
   m_exportAttachmentsCheck->setChecked(p_option.m_exportAttachments);
 
-  idx = m_renderingStyleCombo->findData(p_option.m_renderingStyleFile);
-  if (idx >= 0) {
-    m_renderingStyleCombo->setCurrentIndex(idx);
-  }
-
-  idx = m_syntaxStyleCombo->findData(p_option.m_syntaxHighlightStyleFile);
-  if (idx >= 0) {
-    m_syntaxStyleCombo->setCurrentIndex(idx);
-  }
+  auto *themeService = m_services.get<ThemeService>();
+  restoreStyleCombo(m_renderingStyleCombo, p_option.m_renderingStyleFile,
+                    themeService->getFile(Theme::File::WebStyleSheet));
+  restoreStyleCombo(m_syntaxStyleCombo, p_option.m_syntaxHighlightStyleFile,
+                    themeService->getFile(Theme::File::HighlightStyleSheet));
 
   restoreHtmlFields(p_option.m_htmlOption);
   restorePdfFields(p_option.m_pdfOption);
@@ -555,6 +555,18 @@ ExportOption ExportDialog2::collectFields() {
   }
 
   return option;
+}
+
+void ExportDialog2::restoreStyleCombo(QComboBox *p_combo, const QString &p_savedStyleFile,
+                                      const QString &p_defaultStyleFile) {
+  int idx = p_combo->findData(p_savedStyleFile);
+  if (idx < 0) {
+    idx = p_combo->findData(p_defaultStyleFile);
+  }
+
+  if (idx >= 0) {
+    p_combo->setCurrentIndex(idx);
+  }
 }
 
 void ExportDialog2::restoreHtmlFields(const ExportHtmlOption &p_option) {

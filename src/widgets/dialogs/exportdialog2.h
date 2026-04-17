@@ -44,6 +44,9 @@ private:
   void restoreFields(const ExportOption &p_option);
   ExportOption collectFields();
 
+  void restoreStyleCombo(QComboBox *p_combo, const QString &p_savedStyleFile,
+                         const QString &p_defaultStyleFile);
+
   void restoreHtmlFields(const ExportHtmlOption &p_option);
   void saveHtmlFields(ExportHtmlOption &p_option) const;
 

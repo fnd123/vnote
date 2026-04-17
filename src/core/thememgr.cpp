@@ -202,15 +202,33 @@ QVector<QPair<QString, QString>> ThemeMgr::getWebStyles() const {
       styles.push_back(qMakePair(
           tr("[Theme] %1 %2").arg(th.m_displayName, PathUtils::fileName(filePath)), filePath));
     }
+  }
 
-    filePath = Theme::getFile(th.m_folderPath, Theme::File::HighlightStyleSheet);
+  // From search paths.
+  for (const auto &pa : s_webStylesSearchPaths) {
+    QDir dir(pa);
+    auto styleFiles = dir.entryList({"*.css"}, QDir::Files);
+    for (const auto &file : styleFiles) {
+      styles.push_back(qMakePair(file, dir.filePath(file)));
+    }
+  }
+
+  return styles;
+}
+
+QVector<QPair<QString, QString>> ThemeMgr::getHighlightStyles() const {
+  QVector<QPair<QString, QString>> styles;
+
+  // From themes.
+  for (const auto &th : m_themes) {
+    auto filePath = Theme::getFile(th.m_folderPath, Theme::File::HighlightStyleSheet);
     if (!filePath.isEmpty()) {
       styles.push_back(qMakePair(
           tr("[Theme] %1 %2").arg(th.m_displayName, PathUtils::fileName(filePath)), filePath));
     }
   }
 
-  // From search paths.
+  // Custom CSS files are historically stored in web_styles and may be used for either role.
   for (const auto &pa : s_webStylesSearchPaths) {
     QDir dir(pa);
     auto styleFiles = dir.entryList({"*.css"}, QDir::Files);
