@@ -93,7 +93,9 @@ const QString &CoreConfig::getLocale() const { return m_locale; }
 
 void CoreConfig::setLocale(const QString &p_locale) { updateConfig(m_locale, p_locale, this); }
 
-QString CoreConfig::getLocaleToUse() const { return QLocale().name(); }
+QString CoreConfig::getLocaleToUse() const {
+  return m_locale.isEmpty() ? QLocale().name() : m_locale;
+}
 
 const QStringList &CoreConfig::getAvailableLocales() {
   if (s_availableLocales.isEmpty()) {

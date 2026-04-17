@@ -61,7 +61,7 @@ else()
     qt_add_lupdate(vnote TS_FILES ${VX_TS_FILES})
 endif()
 
-add_dependencies(vnote VX_EXTRA_RESOURCE)
+add_dependencies(vnote VX_EXTRA_RESOURCE lrelease)
 
 set(VX_LIBS_FOLDER ../libs)
 target_include_directories(vnote PRIVATE

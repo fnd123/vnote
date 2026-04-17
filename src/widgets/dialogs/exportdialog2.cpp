@@ -559,9 +559,9 @@ ExportOption ExportDialog2::collectFields() {
 
 void ExportDialog2::restoreStyleCombo(QComboBox *p_combo, const QString &p_savedStyleFile,
                                       const QString &p_defaultStyleFile) {
-  int idx = p_combo->findData(p_savedStyleFile);
+  int idx = p_combo->findData(p_defaultStyleFile);
   if (idx < 0) {
-    idx = p_combo->findData(p_defaultStyleFile);
+    idx = p_combo->findData(p_savedStyleFile);
   }
 
   if (idx >= 0) {
