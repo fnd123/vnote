@@ -12,6 +12,9 @@ namespace vnotex {
 class WebViewExporter;
 
 struct ExportFileInfo {
+  bool isSectionHeading = false;
+  QString sectionTitle;
+  int sectionLevel = 1;
   QString filePath;
   QString fileName;
   QString resourcePath;

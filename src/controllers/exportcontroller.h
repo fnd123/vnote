@@ -39,6 +39,8 @@ private:
   Exporter *ensureExporter();
   void collectExportFiles(const QString &p_notebookId, const QString &p_folderPath,
                           bool p_recursive, bool p_exportAttachments,
+                          bool p_includeFolderHeadings, int p_folderHeadingLevel,
+                          const QString &p_excludedOutputDir,
                           QVector<ExportFileInfo> &p_files);
   bool isMarkdownFile(const QString &p_filePath) const;
   QString normalizedRelativePath(const QString &p_relativePath) const;

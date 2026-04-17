@@ -37,6 +37,7 @@ protected:
 
 private:
   void setupUI();
+  void updateContextFromSelectedSource();
 
   void loadConfig();
   void saveConfig();

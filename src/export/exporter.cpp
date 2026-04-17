@@ -4,6 +4,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QWidget>
 
@@ -55,6 +56,21 @@ QString convertLocalMarkdownImagesToAbsoluteUrls(QString p_content, const QStrin
 
 QString pageBreakMarkdown() {
   return QStringLiteral("\n\n<div style=\"page-break-after: always;\"></div>\n\n");
+}
+
+QString sectionHeadingMarkdown(const ExportFileInfo &p_file) {
+  auto title = p_file.sectionTitle.trimmed();
+  title.replace(QRegularExpression(QStringLiteral("[\\r\\n]+")), QStringLiteral(" "));
+  return QStringLiteral("%1 %2\n")
+      .arg(QString(qBound(1, p_file.sectionLevel, 6), QLatin1Char('#')), title);
+}
+
+void appendAllInOneSeparator(QString &p_content, bool p_previousWasHeading) {
+  if (p_content.isEmpty()) {
+    return;
+  }
+
+  p_content += p_previousWasHeading ? QStringLiteral("\n\n") : pageBreakMarkdown();
 }
 
 QString Exporter::doExportFile(const ExportOption &p_option, const QString &p_content,
@@ -114,6 +130,11 @@ QStringList Exporter::doExportBatch(const ExportOption &p_option,
     for (int i = 0; i < p_files.size(); ++i) {
       if (checkAskedToStop()) {
         break;
+      }
+
+      if (p_files[i].isSectionHeading) {
+        emit progressUpdated(i + 1, p_files.size());
+        continue;
       }
 
       const auto outputFile = doExport(p_option, outputFolder, p_files[i]);
@@ -256,10 +277,19 @@ QString Exporter::doExportPdfAllInOne(const ExportOption &p_option,
 
   if (!p_option.m_pdfOption.m_useWkhtmltopdf) {
     QString combinedContent;
+    bool previousWasHeading = false;
     emit progressUpdated(0, p_files.size());
     for (int i = 0; i < p_files.size(); ++i) {
       if (checkAskedToStop()) {
         return QString();
+      }
+
+      if (p_files[i].isSectionHeading) {
+        appendAllInOneSeparator(combinedContent, previousWasHeading);
+        combinedContent += sectionHeadingMarkdown(p_files[i]);
+        previousWasHeading = true;
+        emit progressUpdated(i + 1, p_files.size());
+        continue;
       }
 
       try {
@@ -268,10 +298,9 @@ QString Exporter::doExportPdfAllInOne(const ExportOption &p_option,
           content = convertLocalMarkdownImagesToAbsoluteUrls(content, p_files[i].resourcePath);
         }
 
-        if (!combinedContent.isEmpty()) {
-          combinedContent += pageBreakMarkdown();
-        }
+        appendAllInOneSeparator(combinedContent, previousWasHeading);
         combinedContent += content;
+        previousWasHeading = false;
       } catch (const Exception &e) {
         emit logRequested(tr("Failed to read file (%1): %2")
                               .arg(p_files[i].filePath, QString::fromUtf8(e.what())));
@@ -312,8 +341,12 @@ QString Exporter::doExportPdfAllInOne(const ExportOption &p_option,
     }
 
     const auto htmlFile =
-        doExportHtml(tmpOption, tmpDir.path(), QString(), p_files[i].filePath, p_files[i].fileName,
-                     p_files[i].resourcePath, QString(), QString());
+        p_files[i].isSectionHeading
+            ? doExportHtml(tmpOption, tmpDir.path(), sectionHeadingMarkdown(p_files[i]), QString(),
+                           QStringLiteral("section_heading.md"), tmpDir.path(), QString(),
+                           QString())
+            : doExportHtml(tmpOption, tmpDir.path(), QString(), p_files[i].filePath,
+                           p_files[i].fileName, p_files[i].resourcePath, QString(), QString());
     if (!htmlFile.isEmpty()) {
       htmlFiles << htmlFile;
     }
@@ -369,8 +402,12 @@ QString Exporter::doExportCustomAllInOne(const ExportOption &p_option,
       }
 
       const auto htmlFile =
-          doExportHtml(tmpOption, tmpDir.path(), QString(), p_files[i].filePath,
-                       p_files[i].fileName, p_files[i].resourcePath, QString(), QString());
+          p_files[i].isSectionHeading
+              ? doExportHtml(tmpOption, tmpDir.path(), sectionHeadingMarkdown(p_files[i]),
+                             QString(), QStringLiteral("section_heading.md"), tmpDir.path(),
+                             QString(), QString())
+              : doExportHtml(tmpOption, tmpDir.path(), QString(), p_files[i].filePath,
+                             p_files[i].fileName, p_files[i].resourcePath, QString(), QString());
       if (!htmlFile.isEmpty()) {
         inputFiles << htmlFile;
         resourcePaths << PathUtils::parentDirPath(htmlFile);
@@ -392,6 +429,11 @@ QString Exporter::doExportCustomAllInOne(const ExportOption &p_option,
     for (int i = 0; i < p_files.size(); ++i) {
       if (checkAskedToStop()) {
         return QString();
+      }
+
+      if (p_files[i].isSectionHeading) {
+        emit progressUpdated(i + 1, p_files.size());
+        continue;
       }
 
       inputFiles << p_files[i].filePath;

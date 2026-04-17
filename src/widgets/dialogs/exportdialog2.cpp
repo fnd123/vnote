@@ -1,6 +1,9 @@
 #include "exportdialog2.h"
 
+#include <algorithm>
+
 #include <QCheckBox>
+#include <QCollator>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDesktopServices>
@@ -10,6 +13,8 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPageLayout>
@@ -28,6 +33,7 @@
 #include <core/configmgr2.h>
 #include <core/servicelocator.h>
 #include <core/sessionconfig.h>
+#include <core/services/notebookcoreservice.h>
 #include <gui/services/themeservice.h>
 
 #include "../locationinputwithbrowsebutton.h"
@@ -89,6 +95,13 @@ private:
 using namespace vnotex;
 
 namespace {
+constexpr int c_sourceNotebookIdRole = Qt::UserRole + 1;
+constexpr int c_sourceRelativePathRole = Qt::UserRole + 2;
+
+QString displayFolderPath(const QString &p_relativePath) {
+  return p_relativePath.isEmpty() ? QStringLiteral("/") : p_relativePath;
+}
+
 QString sourceText(ExportSource p_source, const ExportContext &p_context) {
   switch (p_source) {
   case ExportSource::CurrentBuffer:
@@ -105,7 +118,8 @@ QString sourceText(ExportSource p_source, const ExportContext &p_context) {
 
   case ExportSource::CurrentFolder:
     if (p_context.currentFolderId.isValid()) {
-      return ExportDialog2::tr("Current Folder (%1)").arg(p_context.currentFolderId.relativePath);
+      return ExportDialog2::tr("Current Folder (%1)")
+          .arg(displayFolderPath(p_context.currentFolderId.relativePath));
     }
     return ExportDialog2::tr("Current Folder");
 
@@ -178,6 +192,47 @@ int findCustomOption(const QVector<ExportCustomOption> &p_options, const QString
 
   return -1;
 }
+
+QCollator newFolderCollator() {
+  QCollator collator;
+  collator.setNumericMode(true);
+  collator.setCaseSensitivity(Qt::CaseInsensitive);
+  return collator;
+}
+
+QStringList sortedFolderNames(const QJsonObject &p_children) {
+  QStringList names;
+  const auto folders = p_children.value(QStringLiteral("folders")).toArray();
+  names.reserve(folders.size());
+  for (const auto &folder : folders) {
+    const auto name = folder.toObject().value(QStringLiteral("name")).toString();
+    if (!name.isEmpty()) {
+      names.append(name);
+    }
+  }
+
+  auto collator = newFolderCollator();
+  std::sort(names.begin(), names.end(), [&collator](const QString &p_lhs,
+                                                    const QString &p_rhs) {
+    return collator.compare(p_lhs, p_rhs) < 0;
+  });
+  return names;
+}
+
+void collectFolderIds(NotebookCoreService *p_notebookService, const QString &p_notebookId,
+                      const QString &p_folderPath, QList<NodeIdentifier> &p_folders) {
+  if (!p_notebookService || p_notebookId.isEmpty()) {
+    return;
+  }
+
+  const auto children = p_notebookService->listFolderChildren(p_notebookId, p_folderPath);
+  for (const auto &name : sortedFolderNames(children)) {
+    const auto childPath =
+        p_folderPath.isEmpty() ? name : p_folderPath + QLatin1Char('/') + name;
+    p_folders.append(NodeIdentifier{p_notebookId, childPath});
+    collectFolderIds(p_notebookService, p_notebookId, childPath, p_folders);
+  }
+}
 } // namespace
 
 ExportDialog2::ExportDialog2(ServiceLocator &p_services, const ExportContext &p_context,
@@ -220,6 +275,12 @@ void ExportDialog2::setupUI() {
     auto source = static_cast<ExportSource>(i);
     m_sourceCombo->addItem(sourceText(source, m_context), i);
     const int idx = m_sourceCombo->count() - 1;
+    if (source == ExportSource::CurrentFolder && m_context.currentFolderId.isValid()) {
+      m_sourceCombo->setItemData(idx, m_context.currentFolderId.notebookId,
+                                 c_sourceNotebookIdRole);
+      m_sourceCombo->setItemData(idx, m_context.currentFolderId.relativePath,
+                                 c_sourceRelativePathRole);
+    }
 
     if (!sourceAvailable(source, m_context)) {
       // Disable the item via QStandardItem flags (the proper Qt API).
@@ -230,6 +291,29 @@ void ExportDialog2::setupUI() {
         }
       }
       m_sourceCombo->setItemData(idx, sourceUnavailableReason(source), Qt::ToolTipRole);
+    }
+  }
+
+  const auto notebookId = !m_context.notebookId.isEmpty()
+                              ? m_context.notebookId
+                              : (m_context.currentNodeId.isValid() ? m_context.currentNodeId.notebookId
+                                                                   : m_context.currentFolderId.notebookId);
+  auto *notebookService = m_services.get<NotebookCoreService>();
+  if (notebookService && !notebookId.isEmpty()) {
+    QList<NodeIdentifier> folders;
+    folders.append(NodeIdentifier{notebookId, QString()});
+    collectFolderIds(notebookService, notebookId, QString(), folders);
+
+    for (const auto &folderId : folders) {
+      if (folderId == m_context.currentFolderId) {
+        continue;
+      }
+
+      m_sourceCombo->addItem(tr("Folder (%1)").arg(displayFolderPath(folderId.relativePath)),
+                             static_cast<int>(ExportSource::CurrentFolder));
+      const int idx = m_sourceCombo->count() - 1;
+      m_sourceCombo->setItemData(idx, folderId.notebookId, c_sourceNotebookIdRole);
+      m_sourceCombo->setItemData(idx, folderId.relativePath, c_sourceRelativePathRole);
     }
   }
 
@@ -571,6 +655,21 @@ ExportOption ExportDialog2::collectFields() {
   return option;
 }
 
+void ExportDialog2::updateContextFromSelectedSource() {
+  const auto source = static_cast<ExportSource>(m_sourceCombo->currentData().toInt());
+  if (source != ExportSource::CurrentFolder) {
+    return;
+  }
+
+  const auto notebookId = m_sourceCombo->currentData(c_sourceNotebookIdRole).toString();
+  if (notebookId.isEmpty()) {
+    return;
+  }
+
+  m_context.currentFolderId =
+      NodeIdentifier{notebookId, m_sourceCombo->currentData(c_sourceRelativePathRole).toString()};
+}
+
 void ExportDialog2::restoreStyleCombo(QComboBox *p_combo, const QString &p_savedStyleFile,
                                       const QString &p_defaultStyleFile) {
   int idx = p_combo->findData(p_defaultStyleFile);
@@ -749,7 +848,9 @@ void ExportDialog2::onExportClicked() {
   saveCurrentCustomScheme();
 
   updateUiOnExportState(true);
-  m_controller->doExport(collectFields(), m_context);
+  auto option = collectFields();
+  updateContextFromSelectedSource();
+  m_controller->doExport(option, m_context);
 }
 
 void ExportDialog2::onExportFinished(const QStringList &p_outputFiles) {
