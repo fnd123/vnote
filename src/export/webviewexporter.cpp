@@ -5,6 +5,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QTemporaryDir>
+#include <QVariant>
 #include <QVector>
 #include <QWebEnginePage>
 #include <QWidget>
@@ -16,7 +17,6 @@
 #include <core/markdowneditorconfig.h>
 #include <gui/services/themeservice.h>
 #include <utils/fileutils.h>
-#include <utils/htmlutils.h>
 #include <utils/pathutils.h>
 #include <utils/processutils.h>
 #include <utils/utils.h>
@@ -67,85 +67,6 @@ QString fillScriptTag(const QString &p_scriptFile) {
   const auto url = PathUtils::pathToUrl(p_scriptFile);
   return QStringLiteral("<script type=\"text/javascript\" src=\"%1\"></script>\n")
       .arg(url.toString());
-}
-
-struct MarkdownHeading {
-  int m_level = 1;
-  QString m_text;
-};
-
-QString cleanedHeadingText(QString p_text) {
-  p_text.remove(QRegularExpression(QStringLiteral("\\s+#+\\s*$")));
-  p_text.replace(QRegularExpression(QStringLiteral("!\\[([^\\]]*)\\]\\([^\\)]*\\)")),
-                 QStringLiteral("\\1"));
-  p_text.replace(QRegularExpression(QStringLiteral("\\[([^\\]]+)\\]\\([^\\)]*\\)")),
-                 QStringLiteral("\\1"));
-  p_text.remove(QRegularExpression(QStringLiteral("[`*_~]")));
-  return p_text.trimmed();
-}
-
-QVector<MarkdownHeading> extractMarkdownHeadings(const QString &p_content) {
-  QVector<MarkdownHeading> headings;
-  bool inFence = false;
-  QChar fenceMarker;
-  const QRegularExpression headingRe(QStringLiteral("^\\s{0,3}(#{1,6})\\s+(.+?)\\s*$"));
-
-  const auto lines = p_content.split(QLatin1Char('\n'));
-  for (const auto &line : lines) {
-    const auto trimmed = line.trimmed();
-    if (trimmed.startsWith(QStringLiteral("```")) || trimmed.startsWith(QStringLiteral("~~~"))) {
-      const auto marker = trimmed[0];
-      if (!inFence) {
-        inFence = true;
-        fenceMarker = marker;
-      } else if (fenceMarker == marker) {
-        inFence = false;
-      }
-      continue;
-    }
-
-    if (inFence) {
-      continue;
-    }
-
-    const auto match = headingRe.match(line);
-    if (!match.hasMatch()) {
-      continue;
-    }
-
-    const auto text = cleanedHeadingText(match.captured(2));
-    if (text.isEmpty()) {
-      continue;
-    }
-
-    MarkdownHeading heading;
-    heading.m_level = match.captured(1).size();
-    heading.m_text = text;
-    headings.append(heading);
-  }
-
-  return headings;
-}
-
-QString buildMarkdownTableOfContents(const QString &p_content, const QString &p_title) {
-  const auto headings = extractMarkdownHeadings(p_content);
-  if (headings.isEmpty()) {
-    return QString();
-  }
-
-  int baseLevel = 6;
-  for (const auto &heading : headings) {
-    baseLevel = qMin(baseLevel, heading.m_level);
-  }
-
-  QString toc = QStringLiteral("## %1\n\n").arg(p_title);
-  for (const auto &heading : headings) {
-    const int indentLevel = qMax(0, heading.m_level - baseLevel);
-    toc += QString(indentLevel * 2, QLatin1Char(' '));
-    toc += QStringLiteral("- %1\n").arg(heading.m_text);
-  }
-
-  return toc.trimmed();
 }
 
 void fillGlobalOptions(QString &p_template, const MarkdownWebGlobalOptions &p_opts) {
@@ -340,15 +261,7 @@ bool vnotex::WebViewExporter::doExport(const ExportOption &p_option, const QStri
   m_viewer->adapter()->reset();
   m_viewer->setHtml(m_htmlTemplate, baseUrl);
 
-  auto textContent = p_content;
-  if (p_option.m_targetFormat == ExportFormat::PDF && p_option.m_pdfOption.m_addTableOfContents &&
-      !p_option.m_pdfOption.m_useWkhtmltopdf) {
-    const auto toc = buildMarkdownTableOfContents(textContent, tr("Table of Contents"));
-    if (!toc.isEmpty()) {
-      textContent = toc + QStringLiteral("\n\n") + textContent;
-    }
-  }
-  m_viewer->adapter()->setText(textContent);
+  m_viewer->adapter()->setText(p_content);
 
   while (!isWebViewReady()) {
     Utils::sleepWait(100);
@@ -380,7 +293,10 @@ bool vnotex::WebViewExporter::doExport(const ExportOption &p_option, const QStri
     if (p_option.m_pdfOption.m_useWkhtmltopdf) {
       ret = doExportWkhtmltopdf(p_option.m_pdfOption, p_destPath, baseUrl);
     } else {
-      ret = doExportPdf(p_option.m_pdfOption, p_destPath);
+      const auto outlineItems = p_option.m_pdfOption.m_addTableOfContents
+                                    ? collectPdfOutlineItems(p_option.m_pdfOption)
+                                    : QVector<PdfOutlineItem>();
+      ret = doExportPdf(p_option.m_pdfOption, p_destPath, outlineItems);
     }
     break;
 
@@ -616,9 +532,8 @@ void WebViewExporter::prepareWkhtmltopdfArguments(const ExportPdfOption &p_pdfOp
 
   // Must be put after the global object options.
   if (p_pdfOption.m_addTableOfContents) {
-    m_wkhtmltopdfArgs << "toc";
-    m_wkhtmltopdfArgs << "--toc-text-size-shrink" << "1.0";
-    m_wkhtmltopdfArgs << "--toc-header-text" << HtmlUtils::unicodeEncode(tr("Table of Contents"));
+    m_wkhtmltopdfArgs << "--outline";
+    m_wkhtmltopdfArgs << "--outline-depth" << "6";
   }
 }
 
@@ -734,7 +649,73 @@ bool WebViewExporter::fixBodyResources(const QUrl &p_baseUrl, const QString &p_f
   return altered;
 }
 
-bool WebViewExporter::doExportPdf(const ExportPdfOption &p_pdfOption, const QString &p_outputFile) {
+QVector<PdfOutlineItem> WebViewExporter::collectPdfOutlineItems(
+    const ExportPdfOption &p_pdfOption) {
+  QVector<PdfOutlineItem> items;
+  if (!m_viewer || !p_pdfOption.m_layout) {
+    return items;
+  }
+
+  ExportState state = ExportState::Busy;
+  const auto pageHeight = pageLayoutSize(*p_pdfOption.m_layout).height();
+  const auto script = QStringLiteral(R"JS(
+(function(pageHeight) {
+  var headings = Array.prototype.slice.call(document.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+  return headings.map(function(heading) {
+    var text = (heading.innerText || heading.textContent || '').trim();
+    if (!text) {
+      return null;
+    }
+
+    var style = window.getComputedStyle(heading);
+    if (style.display === 'none' || style.visibility === 'hidden') {
+      return null;
+    }
+
+    var rect = heading.getBoundingClientRect();
+    var top = rect.top + window.scrollY;
+    return {
+      title: text,
+      level: parseInt(heading.tagName.substring(1), 10),
+      page: Math.max(0, Math.floor(top / pageHeight))
+    };
+  }).filter(function(item) {
+    return item !== null;
+  });
+})(%1);
+)JS")
+                          .arg(qMax(1, pageHeight));
+
+  m_viewer->page()->runJavaScript(script, [&, this](const QVariant &p_result) {
+    const auto list = p_result.toList();
+    items.reserve(list.size());
+    for (const auto &entry : list) {
+      const auto map = entry.toMap();
+      PdfOutlineItem item;
+      item.m_title = map.value(QStringLiteral("title")).toString().trimmed();
+      item.m_level = map.value(QStringLiteral("level")).toInt();
+      item.m_page = map.value(QStringLiteral("page")).toInt();
+      if (!item.m_title.isEmpty()) {
+        items.append(item);
+      }
+    }
+
+    state = ExportState::Finished;
+  });
+
+  while (state == ExportState::Busy) {
+    Utils::sleepWait(100);
+
+    if (m_askedToStop) {
+      break;
+    }
+  }
+
+  return items;
+}
+
+bool WebViewExporter::doExportPdf(const ExportPdfOption &p_pdfOption, const QString &p_outputFile,
+                                  const QVector<PdfOutlineItem> &p_outlineItems) {
   ExportState state = ExportState::Busy;
 
   m_viewer->page()->printToPdf(
@@ -747,7 +728,17 @@ bool WebViewExporter::doExportPdf(const ExportPdfOption &p_pdfOption, const QStr
 
         Q_ASSERT(!p_outputFile.isEmpty());
 
-        FileUtils::writeFile(p_outputFile, p_result);
+        auto pdf = p_result;
+        if (!p_outlineItems.isEmpty()) {
+          const auto pdfWithOutline = PdfOutlineInjector::addOutline(pdf, p_outlineItems);
+          if (pdfWithOutline == pdf) {
+            qWarning() << "failed to add PDF outline" << p_outputFile;
+          } else {
+            pdf = pdfWithOutline;
+          }
+        }
+
+        FileUtils::writeFile(p_outputFile, pdf);
 
         state = ExportState::Finished;
       },

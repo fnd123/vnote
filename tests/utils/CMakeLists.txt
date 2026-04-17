@@ -15,6 +15,13 @@ add_qt_test(test_htmlutils
   GUILESS
 )
 
+add_qt_test(test_pdfoutlineinjector
+  SOURCES
+    test_pdfoutlineinjector.cpp
+    ${CMAKE_SOURCE_DIR}/src/export/pdfoutlineinjector.cpp
+  GUILESS
+)
+
 add_qt_test(test_fileutils2
   SOURCES
     test_fileutils2.cpp

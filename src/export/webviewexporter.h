@@ -4,6 +4,7 @@
 #include <QObject>
 
 #include "exportdata.h"
+#include "pdfoutlineinjector.h"
 
 #include <core/servicelocator.h>
 
@@ -63,7 +64,10 @@ private:
 
   bool fixBodyResources(const QUrl &p_baseUrl, const QString &p_folder, QString &p_html);
 
-  bool doExportPdf(const ExportPdfOption &p_pdfOption, const QString &p_outputFile);
+  bool doExportPdf(const ExportPdfOption &p_pdfOption, const QString &p_outputFile,
+                   const QVector<PdfOutlineItem> &p_outlineItems);
+
+  QVector<PdfOutlineItem> collectPdfOutlineItems(const ExportPdfOption &p_pdfOption);
 
   bool doExportWkhtmltopdf(const ExportPdfOption &p_pdfOption, const QString &p_outputFile,
                            const QUrl &p_baseUrl);

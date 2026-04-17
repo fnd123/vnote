@@ -2424,8 +2424,8 @@ Backup file last modified time: %2</source>
     </message>
     <message>
         <location filename="../../../widgets/dialogs/exportdialog.cpp" line="612"/>
-        <source>Add Table-of-Contents</source>
-        <translation>添加内容导航表格</translation>
+        <source>Add PDF outline</source>
+        <translation>添加 PDF 大纲</translation>
     </message>
     <message>
         <location filename="../../../widgets/dialogs/exportdialog.cpp" line="620"/>
@@ -2877,8 +2877,8 @@ Backup file last modified time: %2</source>
     </message>
     <message>
         <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="367"/>
-        <source>Add table of contents</source>
-        <translation>添加目录</translation>
+        <source>Add PDF outline</source>
+        <translation>添加 PDF 大纲</translation>
     </message>
     <message>
         <location filename="../../../widgets/dialogs/exportdialog2.cpp" line="371"/>

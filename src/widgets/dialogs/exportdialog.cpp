@@ -609,7 +609,7 @@ QWidget *ExportDialog::getPdfAdvancedSettings() {
 
     {
       m_addTableOfContentsCheckBox =
-          WidgetsFactory::createCheckBox(tr("Add Table-of-Contents"), widget);
+          WidgetsFactory::createCheckBox(tr("Add PDF outline"), widget);
       layout->addRow(m_addTableOfContentsCheckBox);
     }
 

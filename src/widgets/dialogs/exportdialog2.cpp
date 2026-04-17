@@ -365,7 +365,7 @@ void ExportDialog2::setupUI() {
       updatePageLayoutButtonLabel();
     });
 
-    m_addTableOfContentsCheck = WidgetsFactory::createCheckBox(tr("Add table of contents"), page);
+    m_addTableOfContentsCheck = WidgetsFactory::createCheckBox(tr("Add PDF outline"), page);
     layout->addRow(m_addTableOfContentsCheck);
 
     m_useWkhtmltopdfCheck =
